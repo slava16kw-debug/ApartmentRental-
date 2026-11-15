@@ -1,0 +1,16 @@
+import { build } from 'esbuild';
+import { readFile, mkdir, copyFile, writeFile, rm } from 'node:fs/promises';
+const root = new URL('../', import.meta.url);
+process.chdir(root.pathname);
+await rm('dist', { recursive: true, force: true });
+await mkdir('dist/server', { recursive: true });
+await mkdir('dist/.openai', { recursive: true });
+const bundle = await build({ entryPoints: ['src/app.js'], bundle: true, write: false, minify: true, format: 'esm', target: 'es2022', platform: 'browser', legalComments: 'none' });
+const assets = { 'app:client': bundle.outputFiles[0].text, 'app:html': await readFile('src/index.html', 'utf8'), 'app:css': await readFile('src/style.css', 'utf8') };
+await build({ entryPoints: ['worker/index.js'], outfile: 'dist/server/index.js', bundle: true, format: 'esm', platform: 'browser', target: 'es2022', minify: true, plugins: [{ name: 'embedded-assets', setup(b) { b.onResolve({ filter: /^app:/ }, a => ({ path: a.path, namespace: 'asset' })); b.onLoad({ filter: /.*/, namespace: 'asset' }, a => ({ contents: assets[a.path], loader: 'text' })); } }] });
+await copyFile('.openai/hosting.json', 'dist/.openai/hosting.json');
+await mkdir('dist/drizzle', { recursive: true });
+const { readdir, cp } = await import('node:fs/promises');
+for (const f of await readdir('drizzle')) await cp(`drizzle/${f}`, `dist/drizzle/${f}`, { recursive: true });
+await writeFile('dist/server/wrangler.json', JSON.stringify({ name: 'moi-kvartiry', main: 'index.js', compatibility_date: '2026-11-01', compatibility_flags: ['nodejs_compat'], d1_databases: [{ binding: 'DB', database_name: 'moi-kvartiry', database_id: 'local-placeholder', migrations_dir: '../drizzle' }] }, null, 2));
+console.log('Built deployable Worker with embedded application assets.');

@@ -1,0 +1,43 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { DatabaseSync } from 'node:sqlite';
+import { readFileSync } from 'node:fs';
+import { JSDOM } from 'jsdom';
+import worker from '../dist/server/index.js';
+import { finances, today, monthOf, addMonths } from '../src/domain.js';
+
+test('forms persist rent, rental expenses, residence expenses, and readings through the API', async () => {
+  const sqlite = new DatabaseSync(':memory:'); sqlite.exec(readFileSync(new URL('../drizzle/0000_milky_vulcan.sql', import.meta.url), 'utf8'));
+  const env = { PRIVATE_SITE: 'true', DB: { prepare(sql) { return { values: [], bind(...v) { this.values = v; return this; }, async first() { return sqlite.prepare(sql).get(...this.values); }, async run() { return sqlite.prepare(sql).run(...this.values); } }; } } };
+  const html = await (await worker.fetch(new Request('https://test/'), env)).text();
+  const script = await (await worker.fetch(new Request('https://test/assets/app.js'), env)).text();
+  const dom = new JSDOM(html.replace('<script type="module" src="/assets/app.js"></script>', ''), { url: 'https://test/', runScripts: 'outside-only', pretendToBeVisual: true });
+  const { window } = dom; window.structuredClone = structuredClone; window.scrollTo = function() {}; window.HTMLElement.prototype.scrollIntoView = function() {};
+  window.fetch = async (url, init = {}) => worker.fetch(new Request(new URL(url, 'https://test/'), { ...init, headers: { ...init.headers, Origin: 'https://test' } }), env);
+  window.eval(script);
+  const waitFor = async fn => { for (let i = 0; i < 150; i++) { if (fn()) return; await new Promise(r => setTimeout(r, 10)); } throw Error('Timed out waiting for UI: ' + window.document.body.textContent.slice(-1000)); };
+  await waitFor(() => window.document.querySelector('h1'));
+  assert.equal(window.document.querySelector('h1').textContent, 'Обзор портфеля');
+  assert.equal(window.document.querySelectorAll('.property').length, 3);
+  const click = selector => { const el = window.document.querySelector(selector); assert.ok(el, selector); el.click(); };
+  const set = (name, value) => { const el = window.document.querySelector(`[name="${name}"]`); assert.ok(el, name); el.value = value; el.dispatchEvent(new window.Event('change', { bubbles: true })); };
+  const submit = async () => { window.document.querySelector('#active-form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); await waitFor(() => !window.document.querySelector('#active-form') || window.document.querySelector('#form-error')?.textContent); assert.equal(window.document.querySelector('#form-error')?.textContent || '', ''); };
+  click('[data-action="payment"]'); set('propertyId', 'p231'); set('amount', '50000'); await submit();
+  click('[data-action="payment"]'); set('propertyId', 'p741'); set('amount', '35000'); await submit();
+  click('[data-action="expense"]'); set('propertyId', 'p231'); set('amount', '5000'); await submit();
+  click('[data-action="expense"]'); set('propertyId', 'p17'); set('amount', '7000'); await submit();
+  let saved = await (await worker.fetch(new Request('https://test/api/portfolio'), env)).json();
+  assert.equal(finances(saved.state, { year: today().slice(0, 4) }).profit, 80000);
+  assert.equal(finances(saved.state, { year: today().slice(0, 4) }).homeExpenses, 7000);
+  click('[data-action="readings"]'); set('date', addMonths(monthOf(today()), -1) + '-01'); set('p231-water', '858'); await submit();
+  click('[data-action="readings"]'); set('date', monthOf(today()) + '-01'); set('p231-water', '870'); await submit();
+  saved = await (await worker.fetch(new Request('https://test/api/portfolio'), env)).json(); assert.equal(saved.state.readings.length, 2);
+  click('[data-view="payments"]'); assert.equal(window.document.querySelector('h1').textContent, 'Аренда и платежи');
+  click('[data-view="meters"]'); assert.equal(window.document.querySelectorAll('.meter-card').length, 9);
+  click('[data-view="reports"]'); assert.ok(window.document.querySelector('.report-total').textContent.includes('80'));
+  // Demonstration edits must never overwrite the real database.
+  click('[data-action="demo"]'); assert.ok(window.document.querySelector('.demo-banner'));
+  click('[data-action="demo"]'); assert.equal(window.document.querySelector('.demo-banner'), null);
+  const final = await (await worker.fetch(new Request('https://test/api/portfolio'), env)).json(); assert.equal(final.revision, saved.revision);
+  dom.window.close(); sqlite.close();
+});

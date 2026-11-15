@@ -1,0 +1,32 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import ExcelJS from 'exceljs';
+import { initialState } from '../src/domain.js';
+import { readWorkbook, exportWorkbook, exportCSV } from '../src/spreadsheet.js';
+
+test('legacy workbook separates readings, thousands of rent, ruble expenses, and annual totals', async () => {
+  const wb = new ExcelJS.Workbook(), sh = wb.addWorksheet('2026');
+  for (const col of [3, 10, 17]) { sh.getCell(25, col).value = 'Месяц'; sh.getCell(25, col + 1).value = 'Хол.вода'; }
+  for (const [r, month, value] of [[26, 'Январь', 858], [27, 'Февраль', 870]]) {
+    for (const col of [3, 10, 17]) { sh.getCell(r, col).value = month; sh.getCell(r, col + 1).value = value; }
+    sh.getCell(r, 7).value = 50; sh.getCell(r, 14).value = 35;
+  }
+  sh.getCell('Z26').value = new Date('2026-01-05T00:00:00Z'); sh.getCell('AA26').value = 741; sh.getCell('AB26').value = 'Ремонт котла'; sh.getCell('AC26').value = 12000;
+  sh.getCell('C38').value = 'Январь 27'; sh.getCell('G38').value = 600; sh.getCell('N38').value = 350;
+  const buffer = await wb.xlsx.writeBuffer();
+  const s = initialState({}, '2026-11-15'); s.properties[0].address = 'кв. 231'; s.properties[1].address = 'кв. 741';
+  const file = new File([buffer], 'history.xlsx'); const parsed = await readWorkbook(file, s);
+  assert.equal(parsed.candidates.filter(c => c.kind === 'reading').length, 6);
+  assert.deepEqual(parsed.candidates.filter(c => c.kind === 'payment').map(c => c.payload.amount), [50000, 50000, 35000, 35000]);
+  assert.equal(parsed.candidates.filter(c => c.kind === 'expense')[0].payload.amount, 12000);
+  assert.ok(parsed.candidates.filter(c => c.kind === 'payment').every(c => !c.selected));
+  assert.ok(!parsed.candidates.some(c => c.payload.amount === 600000));
+  s.importKeys = parsed.candidates.map(c => c.key); const again = await readWorkbook(file, s); assert.equal(again.candidates.length, 0);
+});
+test('exported XLSX is readable and CSV export can be previewed for re-import', async () => {
+  const s = initialState({}, '2026-11-15'); s.readings.push({ id: 'r1', meterId: 'p231-water', date: '2026-01-01', value: 100, note: '' });
+  const blob = await exportWorkbook(s, 2026); const wb = new ExcelJS.Workbook(); await wb.xlsx.load(await blob.arrayBuffer());
+  assert.equal(wb.getWorksheet('Показания').getCell('E2').value, 100);
+  const csv = exportCSV(s), f = new File([csv], 'export.csv'); const empty = initialState({}, '2026-11-15'); const parsed = await readWorkbook(f, empty);
+  assert.equal(parsed.candidates[0].payload.value, 100); assert.equal(parsed.candidates[0].kind, 'reading');
+});

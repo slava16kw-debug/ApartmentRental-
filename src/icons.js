@@ -1,0 +1,41 @@
+const paths = {
+ home: '<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/>',
+ grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+ building: '<rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 7h1m4 0h1M9 11h1m4 0h1M9 15h1m4 0h1M10 21v-3h4v3"/>',
+ wallet: '<path d="M20 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h15v12H5a2 2 0 0 1-2-2V6m17 5h-5v5h5m-3-2.5h.1"/>',
+ gauge: '<path d="M4 19a10 10 0 1 1 16 0Z"/><path d="m12 13 4-5M6 13H4m8-9V2m6 4 1.5-1.5M6 6 4.5 4.5"/><circle cx="12" cy="13" r="1"/>',
+ receipt: '<path d="M5 3h14v18l-3-2-4 2-4-2-3 2ZM8 7h8M8 11h8m-8 4h5"/>',
+ chart: '<path d="M4 3v17h17M8 15l4-4 4 2 5-7"/>',
+ settings: '<path d="M4 7h16M4 17h16M8 4v6m8 4v6"/>',
+ plus: '<path d="M12 5v14M5 12h14"/>',
+ arrow: '<path d="M5 12h14m-5-5 5 5-5 5"/>',
+ chevron: '<path d="m9 5 7 7-7 7"/>',
+ down: '<path d="m6 9 6 6 6-6"/>',
+ up: '<path d="m7 14 5-5 5 5m-5-5v11"/>',
+ calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18m-13 4h2m4 0h2"/>',
+ check: '<path d="m5 12 4 4L19 6"/>',
+ shield: '<path d="m12 3 8 3v6c0 5-8 9-8 9S4 17 4 12V6Z"/><path d="m8 12 3 3 5-6"/>',
+ lock: '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 4v3"/>',
+ clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+ bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8M10 20h4"/>',
+ user: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/>',
+ drop: '<path d="M12 2S4 11 4 15a8 8 0 0 0 16 0c0-4-8-13-8-13Z"/><path d="M8 15a4 4 0 0 0 4 4"/>',
+ flame: '<path d="M12 2c0 6-7 7-7 13a7 7 0 0 0 14 0c0-4-3-7-3-7s0 4-2 4c-1-3 1-6-2-10Z"/>',
+ bolt: '<path d="m13 2-9 12h7l-1 8 10-13h-7Z"/>',
+ download: '<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>',
+ upload: '<path d="M12 16V4m-5 5 5-5 5 5M4 16v5h16v-5"/>',
+ close: '<path d="m6 6 12 12M6 18 18 6"/>',
+ edit: '<path d="m16 3 5 5-12 12H4v-5Zm-2 2 5 5"/>',
+ trash: '<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/>',
+ info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/>',
+ menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+ leaf: '<path d="M20 3C7 2 2 8 5 15s16 6 15-12ZM5 20 16 9"/>',
+ file: '<path d="M14 2H5v20h14V7Zm0 0v6h5M8 12h8M8 16h8"/>',
+ exit: '<path d="M9 3H4v18h5m5-5 5-5-5-5m-5 5h12"/>',
+ refresh: '<path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 6a8 8 0 0 1 13 2M5 16a8 8 0 0 0 13 2"/>',
+};
+export const icon = name => `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.home}</svg>`;
+export function buildingArt(color = 'mint', home = false) {
+ const c = color === 'sand' ? ['#b8ad91','#d6cbb4','#9f987c'] : color === 'lilac' ? ['#aca4b6','#d2cad9','#9990a6'] : ['#94ac96','#c3d1bc','#7e9c83'];
+ return `<svg class="building" viewBox="0 0 200 125" fill="none" aria-hidden="true"><circle cx="150" cy="33" r="31" fill="${c[1]}" opacity=".55"/><path d="M12 118h182" stroke="${c[2]}"/><path d="M40 118V42l47-16 39 16v76" fill="${c[0]}"/><path d="M87 26v92h39V42Z" fill="${c[2]}"/><path d="M126 118V59l29-9 27 9v59" fill="${c[1]}"/><path d="M155 50v68h27V59Z" fill="${c[0]}"/>${[50,67,84,101].flatMap(y=>[50,67].map(x=>`<path d="M${x} ${y}h9v10h-9Z" fill="#f8faf0" opacity=".8"/>`)).join('')}${[51,68,85,102].map(y=>`<path d="M98 ${y}h12v9H98Z" fill="${c[1]}"/>`).join('')}${[65,83,101].map(y=>`<path d="M136 ${y}h10v10h-10Z" fill="#f8faf0" opacity=".8"/>`).join('')}<path d="M24 118V85" stroke="${c[2]}"/><ellipse cx="24" cy="87" rx="10" ry="19" fill="${c[0]}"/><path d="M190 118V97" stroke="${c[2]}"/><ellipse cx="190" cy="97" rx="7" ry="14" fill="${c[1]}"/></svg>`;
+}

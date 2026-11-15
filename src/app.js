@@ -65,9 +65,9 @@ function render() {
       <header class="header"><div><div class="eyebrow">${currentView === 'overview' ? 'УЧЁТ ПО КВАРТИРАМ' : 'МОИ КВАРТИРЫ'}</div><h1>${esc(title)}</h1><p class="subtitle">${currentView === 'overview' ? `${filter.year} год · ${state.properties.length} квартиры · ${rentalCount} в аренде · ${state.properties.length - rentalCount} для себя` : esc(subtitle)}</p></div><div class="header-actions">${currentView === 'settings' ? btn('Резервная копия', 'backup', 'download') : `${btn('Внести показания', 'readings', 'gauge')}${btn('Расход', 'expense', 'plus')}${btn('Получена аренда', 'payment', 'plus', 'primary')}`}</div></header>
       ${demo ? `<div class="demo-banner">${icon('info')}<span><strong>Демонстрационные данные.</strong> Это пример интерфейса. Ваши реальные записи хранятся отдельно.</span><button class="text-button" data-action="demo">Вернуться к своим данным ${icon('arrow')}</button></div>` : ''}
       ${currentView === 'overview' ? workbookFilters() : currentView !== 'settings' && currentView !== 'properties' ? filters() : ''}
-      ${state.settings.importNotice ? `<div class="info-banner">${icon('info')}<span>${esc(state.settings.importNotice)}</span></div>` : ''}
       ${reconciliationBanner}
       <div id="view">${({ overview: () => renderWorkbook(state, filter), analytics: dashboard, properties: propertiesView, payments: paymentsView, meters: metersView, expenses: expensesView, reports: reportsView, settings: settingsView })[currentView]()}</div>
+      ${currentView !== 'overview' && state.settings.importNotice ? `<div class="info-banner">${icon('info')}<span>${esc(state.settings.importNotice)}</span></div>` : ''}
       <footer class="footer"><span>${icon('shield')}Доступ только у вас · Данные сохраняются на сервере</span><span>Мои квартиры · Учёт по годам</span></footer>
     </main></div>`;
 }

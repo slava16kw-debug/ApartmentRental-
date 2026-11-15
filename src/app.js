@@ -217,16 +217,18 @@ function paymentForm(id, period, editId) {
   const per = old?.period || period || monthOf(today());
   const defaultContract = state.contracts.find(c => c.id === old?.contractId) || contractForMonth(state, pId, per);
   const debt = charges(state, per).find(c => c.propertyId === pId && c.period === per)?.debt;
-  const body = `<div class="form-grid">${select('propertyId', 'Квартира', options(rentals.map(p => [p.id, p.title]), pId))}${select('kind', 'Вид поступления', options([['rent', 'Арендная плата'], ['reimbursement', 'Возмещение расходов'], ['deposit_in', 'Получение залога'], ['deposit_out', 'Возврат залога']], old?.kind || 'rent'))}${select('contractId', 'Договор / арендатор', contractOptions(pId, old?.contractId || defaultContract?.id), true)}${input('date', 'Дата получения', old?.date || today(), 'date', 'required')}${select('datePrecision', 'Точность даты получения', options([['day', 'Точный день известен'], ['month', 'Известен только месяц']], old?.datePrecision || 'day'), false, 'Если известен только месяц, выбранное число используется технически. В истории будет показан только месяц.')}${amount('amount', 'Сумма, ₽', old?.amount || debt || defaultContract?.rent || '')}${input('period', 'За какой месяц', per, 'month', 'required')}${input('endPeriod', 'По месяц включительно', per, 'month', 'required', false, 'Для нескольких месяцев сумма распределится по начислениям. Остаток останется авансом последнего месяца.')}${select('method', 'Способ получения', options(['Перевод', 'Наличные', 'Другое'].map(x => [x, x]), old?.method || 'Перевод'), true)}${note(old?.note)}</div><div class="inline-note">Частичная сумма оставит долг. Залог хранится отдельно от дохода. Будущая дата не попадёт в текущую прибыль.</div>`;
-  modal(old ? 'Исправить платёж' : 'Получена аренда', 'Записывайте деньги, когда действительно получили их.', body, async fd => {
+  const body = `<div class="form-grid">${select('propertyId', 'Квартира', options(rentals.map(p => [p.id, p.title]), pId))}${select('kind', 'Вид поступления', options([['rent', 'Арендная плата'], ['reimbursement', 'Возмещение расходов'], ['deposit_in', 'Получение залога'], ['deposit_out', 'Возврат залога']], old?.kind || 'rent'))}${select('contractId', 'Договор / арендатор', contractOptions(pId, old ? old.contractId || '' : defaultContract?.id), true)}${input('date', 'Дата получения', old?.date || today(), 'date', 'required')}${select('datePrecision', 'Точность даты получения', options([['day', 'Точный день известен'], ['month', 'Известен только месяц']], old?.datePrecision || 'day'), false, 'Если известен только месяц, выбранное число используется технически. В истории будет показан только месяц.')}${amount('amount', 'Сумма, ₽', old?.amount ?? (debt || defaultContract?.rent || ''))}${input('period', 'За какой месяц', per, 'month', 'required')}${input('endPeriod', 'По месяц включительно', per, 'month', 'required', false, 'Для нескольких месяцев сумма распределится по начислениям. При сумме 0 ₽ в каждом выбранном месяце сохранится ноль.')}${select('method', 'Способ получения', options(['Перевод', 'Наличные', 'Другое'].map(x => [x, x]), old?.method || 'Перевод'), true)}${note(old?.note)}</div><div class="inline-note">0 ₽ — отметка, что аренда не поступила. Если жильцы съехали, завершите договор в карточке квартиры, чтобы прекратить начисления. Залог хранится отдельно от дохода.</div>`;
+  modal(old ? 'Исправить платёж' : 'Получена аренда', 'Укажите полученную сумму или 0 ₽, если поступления не было.', body, async fd => {
     const item = { id: old?.id || uid(), propertyId: fd.get('propertyId'), contractId: fd.get('contractId'), kind: fd.get('kind'), amount: getNumber(fd, 'amount'), date: fd.get('datePrecision') === 'month' ? monthOf(fd.get('date')) + '-01' : fd.get('date'), datePrecision: fd.get('datePrecision'), period: fd.get('period'), method: fd.get('method'), note: fd.get('note') };
     const end = fd.get('endPeriod');
+    if (!String(fd.get('amount') ?? '').trim() || !Number.isFinite(item.amount) || item.amount < 0 || item.amount > 1e10 || (item.amount === 0 && item.kind !== 'rent')) throw Error('Укажите сумму: для аренды допустим 0 ₽, для остальных поступлений — больше нуля.');
+    if (item.kind === 'rent' && item.amount === 0) item.method = '';
     if (item.kind !== 'rent') { item.period = ''; item.contractId = ''; }
     if (item.kind === 'deposit_out') {
       const balance = state.payments.filter(x => x.propertyId === item.propertyId && x.id !== old?.id && x.date <= item.date).reduce((a, x) => a + (x.kind === 'deposit_in' ? x.amount : x.kind === 'deposit_out' ? -x.amount : 0), 0);
       if (item.amount > balance) throw Error('Возврат превышает полученный остаток залога. Сначала проверьте историю залогов.');
     }
-    if (item.kind === 'rent' && (!item.contractId || !state.contracts.some(c => c.id === item.contractId))) throw Error('Сначала добавьте договор для этой квартиры.');
+    if (item.kind === 'rent' && !(item.amount === 0 && !item.contractId) && !state.contracts.some(c => c.id === item.contractId && c.propertyId === item.propertyId)) throw Error('Выберите договор. Без договора можно записать только 0 ₽.');
     const periods = item.kind === 'rent' ? monthRange(item.period, end) : [''];
     if (!periods.length || periods.length > 24) throw Error('Выберите последовательный период не более 24 месяцев.');
     await mutate(s => {
@@ -235,10 +237,10 @@ function paymentForm(id, period, editId) {
       for (let i = 0; i < periods.length; i++) {
         const m = periods[i];
         const c = s.contracts.find(c => c.id === item.contractId);
-        if (item.kind === 'rent' && (m < monthOf(c.start) || (c.end && m > monthOf(c.end)))) throw Error('Период оплаты выходит за даты выбранного договора.');
+        if (item.kind === 'rent' && c && (m < monthOf(c.start) || (c.end && m > monthOf(c.end)))) throw Error('Период оплаты выходит за даты выбранного договора.');
         const remainingDue = c ? Math.max(0, Math.round(((c.overrides?.[m] ?? c.rent) - paidFor(s, c.id, m, item.date)) * 100)) : remainder;
         const part = i === periods.length - 1 ? remainder : Math.min(remainder, remainingDue);
-        if (part > 0) s.payments.push({ ...item, id: i === 0 ? item.id : uid(), period: m, amount: part / 100 });
+        if (part > 0 || item.amount === 0) s.payments.push({ ...item, id: i === 0 ? item.id : uid(), period: m, amount: part / 100 });
         remainder -= part;
       }
     }, old ? 'Платёж исправлен' : 'Платёж сохранён');
@@ -249,13 +251,22 @@ function paymentForm(id, period, editId) {
     const c = contractForMonth(state, pid, per);
     root.querySelector('[name="contractId"]').innerHTML = contractOptions(pid, c?.id);
     if (!old) root.querySelector('[name="amount"]').value = c ? Math.max(0, c.rent - paidFor(state, c.id, per)) || c.rent : '';
+    updateKind();
   };
   root.querySelector('[name="propertyId"]').addEventListener('change', refreshPayment);
   root.querySelector('[name="period"]').addEventListener('change', () => { root.querySelector('[name="endPeriod"]').value = root.querySelector('[name="period"]').value; refreshPayment(); });
-  const updateKind = () => { const isRent = root.querySelector('[name="kind"]').value === 'rent'; for (const n of ['period', 'endPeriod', 'contractId']) { const el = root.querySelector(`[name="${n}"]`); el.required = isRent; el.closest('.form-field').style.display = isRent ? '' : 'none'; } };
+  const updateKind = () => {
+    const isRent = root.querySelector('[name="kind"]').value === 'rent', amountInput = root.querySelector('[name="amount"]');
+    const zeroRent = isRent && amountInput.value.trim() !== '' && Number(amountInput.value) === 0;
+    amountInput.min = isRent ? '0' : '0.01';
+    for (const n of ['period', 'endPeriod', 'contractId']) { const el = root.querySelector(`[name="${n}"]`); el.required = isRent && (n !== 'contractId' || !zeroRent); el.closest('.form-field').style.display = isRent ? '' : 'none'; }
+    root.querySelector('label[for="f-date"]').textContent = zeroRent ? 'Дата записи' : 'Дата получения';
+    root.querySelector('[name="method"]').closest('.form-field').style.display = zeroRent ? 'none' : '';
+  };
+  for (const event of ['input', 'change']) root.querySelector('[name="amount"]').addEventListener(event, updateKind);
   root.querySelector('[name="kind"]').addEventListener('change', updateKind); updateKind();
 }
-function contractOptions(pid, chosen) { const cs = state.contracts.filter(c => c.propertyId === pid).sort((a, b) => b.start.localeCompare(a.start)); return cs.length ? options(cs.map(c => [c.id, `${c.tenant || 'Арендатор не указан'} · с ${shortDate(c.start)}${c.end ? ' до ' + shortDate(c.end) : ''}`]), chosen) : '<option value="">Нет договора — добавьте в карточке квартиры</option>'; }
+function contractOptions(pid, chosen = '') { const cs = state.contracts.filter(c => c.propertyId === pid).sort((a, b) => b.start.localeCompare(a.start)); return options([['', 'Без договора / нет жильцов (0 ₽)'], ...cs.map(c => [c.id, `${c.tenant || 'Арендатор не указан'} · с ${shortDate(c.start)}${c.end ? ' до ' + shortDate(c.end) : ''}`])], chosen); }
 function expenseForm(id) {
   const old = state.expenses.find(e => e.id === id), pid = old?.propertyId || (filter.propertyId !== 'all' ? filter.propertyId : state.properties[0].id);
   modal(old ? 'Исправить расход' : 'Добавить расход', 'Укажите квартиру и кто оплачивает этот расход.', `<div class="form-grid">${select('propertyId', 'Квартира', propertyOptions(pid))}${select('category', 'Категория', options(CATEGORIES.map(c => [c, c]), old?.category || 'ЖКХ'))}${amount('amount', 'Сумма, ₽', old?.amount || '')}${input('date', 'Дата счёта / расхода', old?.date || today(), 'date', 'required')}${input('period', 'За какой месяц, необязательно', old?.period || '', 'month')}${select('payer', 'Кто платит', options([['owner', 'Собственник'], ['tenant', 'Арендатор напрямую']], old?.payer || 'owner'))}${select('paid', 'Статус', options([['true', 'Уже оплачен'], ['false', 'Ожидает оплаты']], String(old?.paid ?? true)))}${input('paidDate', 'Дата фактической оплаты', old?.paidDate || today(), 'date', 'required')}${note(old?.note)}</div><div class="inline-note">Своё жильё учитывается отдельно. Если арендатор вернул вам деньги за счёт, добавьте входящий платёж «Возмещение расходов».</div>`, async fd => {
@@ -395,7 +406,7 @@ function importPreview(parsed) {
       }
       for (const row of payments) {
         const x = { ...row.payload };
-        if (x.kind === 'rent') {
+        if (x.kind === 'rent' && x.amount > 0) {
           let c = contractForMonth(s, x.propertyId, x.period);
           if (!c) {
             const after = s.contracts.filter(c => c.propertyId === x.propertyId && c.start > x.period + '-01').sort((a, b) => a.start.localeCompare(b.start))[0];

@@ -101,11 +101,12 @@ export function validateState(s) {
     for (const other of s.contracts.filter(x => x.propertyId === c.propertyId && x.id !== c.id)) if (c.start <= (other.end || '9999-12-31') && other.start <= (c.end || '9999-12-31')) throw Error('Периоды договоров одной квартиры пересекаются. Завершите предыдущие условия.');
   }
   for (const key of ['payments', 'expenses']) for (const x of s[key]) {
-    if (!Number.isFinite(x.amount) || x.amount <= 0 || x.amount > 1e10 || !isDate(x.date)) throw Error('Укажите корректную дату и положительную сумму.');
+    const zeroRent = key === 'payments' && x.kind === 'rent' && x.amount === 0;
+    if (!Number.isFinite(x.amount) || (x.amount <= 0 && !zeroRent) || x.amount > 1e10 || !isDate(x.date)) throw Error('Укажите корректную дату и сумму. Для аренды допустим 0 ₽, для остальных операций — положительная сумма.');
     if (key === 'payments') {
       if (!['rent', 'reimbursement', 'deposit_in', 'deposit_out'].includes(x.kind)) throw Error('Неверный вид платежа.');
       if (x.datePrecision && !['day', 'month'].includes(x.datePrecision)) throw Error('Укажите точность даты платежа.');
-      if (x.kind === 'rent' && (!/^\d{4}-(0[1-9]|1[0-2])$/.test(x.period) || !s.contracts.some(c => c.id === x.contractId && c.propertyId === x.propertyId))) throw Error('Выберите договор и месяц оплаты.');
+      if (x.kind === 'rent' && (!/^\d{4}-(0[1-9]|1[0-2])$/.test(x.period) || (!(zeroRent && !x.contractId) && !s.contracts.some(c => c.id === x.contractId && c.propertyId === x.propertyId)))) throw Error('Выберите договор и месяц оплаты. Без договора можно записать только 0 ₽.');
     }
     if (key === 'expenses' && (!['owner', 'tenant'].includes(x.payer) || (x.paid && !isDate(x.paidDate || x.date)))) throw Error('Проверьте плательщика и дату оплаты расхода.');
   }

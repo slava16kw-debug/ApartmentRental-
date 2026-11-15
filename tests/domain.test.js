@@ -69,6 +69,23 @@ test('rent day clips to last day of February and real zero consumption remains z
 });
 test('demo data passes the same validations as real data', () => { validateState(demoState(now)); });
 
+test('zero rent records are allowed with or without a tenant and preserve contractual debt', () => {
+  const s = state();
+  s.contracts = s.contracts.filter(c => c.propertyId !== 'p741');
+  s.payments.push(payment('unpaid', 'p231', 0), { ...payment('vacant', 'p741', 0), contractId: '' });
+  validateState(s);
+  assert.equal(finances(s, { year: 2026, now }).rent, 0);
+  assert.equal(finances(s, { year: 2026, now }).profit, 0);
+  assert.equal(charges(s, '2026-11', now).find(c => c.propertyId === 'p231').debt, 50000);
+  assert.ok(!charges(s, '2026-11', now).some(c => c.propertyId === 'p741'));
+  for (const changes of [{ amount: -1 }, { amount: null }, { amount: NaN }, { amount: 0, kind: 'deposit_in' }, { amount: 0, kind: 'deposit_out' }, { amount: 0, kind: 'reimbursement' }, { amount: 0, contractId: 'missing' }, { amount: 1, contractId: '' }, { amount: 0, period: '2026-13' }]) {
+    const invalid = state(); invalid.payments.push({ ...payment('invalid', 'p231', 0), ...changes });
+    assert.throws(() => validateState(invalid), JSON.stringify(changes));
+  }
+  const expense = state(); expense.expenses.push({ id: 'empty-expense', propertyId: 'p231', amount: 0, date: now, payer: 'owner', paid: false });
+  assert.throws(() => validateState(expense));
+});
+
 test('historical receipts do not invent contractual charges, arrears, or advance balances', () => {
   const s = state(); s.settings.accountingStart = '2026-01-01';
   s.contracts.push({ id: 'archive', propertyId: 'p741', start: '2026-01-01', end: '2026-10-31', rent: 0, dueDay: 1, historyOnly: true, tenant: 'Архив', overrides: {} });

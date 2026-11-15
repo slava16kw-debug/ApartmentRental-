@@ -36,8 +36,8 @@ function rentCell(state, p, per, allCharges) {
   const id = payments.length === 1 ? payments[0].id : p.id;
   const hasActual = payments.length > 0 || knownZero;
   const label = payments.length ? number(got) : knownZero ? '0' : expected ? `${number(expected)}<small>${per > monthOf(today()) ? 'план' : 'ожидается'}</small>` : '—';
-  const title = hasActual ? `${p.title} · получено за ${MONTHS[Number(per.slice(5)) - 1].toLowerCase()}: ${money(got)}${knownZero ? ' · в Excel отмечено отсутствие поступления' : ''}` : expected ? `${p.title} · ожидается ${money(expected)}, получение не отмечено` : `${p.title} · нет данных об оплате за этот месяц`;
-  return `<td class="sheet-rent ${workbookTheme(state, p.id)} ${hasActual ? payments.length ? 'sheet-rent-received' : 'sheet-rent-zero' : 'sheet-rent-pending'}" data-property="${esc(p.id)}" data-period="${per}"><button type="button" class="sheet-cell-button" data-action="${action}" data-id="${esc(id)}" data-period="${per}" title="${esc(title)}">${label}</button></td>`;
+  const title = hasActual ? `${p.title} · получено за ${MONTHS[Number(per.slice(5)) - 1].toLowerCase()}: ${money(got)}${got === 0 ? ' · поступления не было' : ''}${knownZero && !payments.length ? ' · отмечено в Excel' : ''}` : expected ? `${p.title} · ожидается ${money(expected)}, получение не отмечено` : `${p.title} · нет данных об оплате за этот месяц`;
+  return `<td class="sheet-rent ${workbookTheme(state, p.id)} ${hasActual ? got > 0 ? 'sheet-rent-received' : 'sheet-rent-zero' : 'sheet-rent-pending'}" data-property="${esc(p.id)}" data-period="${per}"><button type="button" class="sheet-cell-button" data-action="${action}" data-id="${esc(id)}" data-period="${per}" title="${esc(title)}">${label}</button></td>`;
 }
 function groupHead(state, p, span) {
   const c = activeContract(state, p.id), theme = workbookTheme(state, p.id);

@@ -8,6 +8,7 @@ test('annual workbook distinguishes readings, calculated usage, received rent, k
   const s = initialState({}, '2026-01-01');
   s.readings.push({ id: 'jan', meterId: 'p231-water', date: '2026-01-01', value: 100 }, { id: 'feb', meterId: 'p231-water', date: '2026-02-01', value: 112 });
   s.payments.push({ id: 'rent', propertyId: 'p231', contractId: 'c-p231', kind: 'rent', period: '2026-01', date: '2026-01-01', amount: 50000 });
+  s.payments.push({ id: 'zero', propertyId: 'p231', contractId: 'c-p231', kind: 'rent', period: '2026-02', date: '2026-02-01', amount: 0 });
   s.importHistory = [{ zeroReceipts: [{ propertyId: 'p741', period: '2026-09', amount: 0 }] }];
   const before = JSON.stringify(s);
   const dom = new JSDOM(renderWorkbook(s, { year: '2026', month: 'all', propertyId: 'all' }));
@@ -21,6 +22,12 @@ test('annual workbook distinguishes readings, calculated usage, received rent, k
   assert.equal(empty.dataset.action, 'readings'); assert.equal(empty.dataset.date, '2026-02-01');
   const rent = table.querySelector('.sheet-rent[data-property="p231"][data-period="2026-01"] button');
   assert.equal(rent.textContent.replace(/\D/g, ''), '50000'); assert.equal(rent.dataset.action, 'edit-payment');
+  const zero = table.querySelector('.sheet-rent[data-property="p231"][data-period="2026-02"]');
+  assert.ok(zero.classList.contains('sheet-rent-zero'));
+  assert.equal(zero.textContent, '0');
+  assert.equal(zero.querySelector('button').dataset.action, 'edit-payment');
+  assert.equal(zero.querySelector('button').dataset.id, 'zero');
+  assert.match(zero.querySelector('button').title, /поступления не было/);
   assert.equal(table.querySelector('.sheet-rent[data-property="p741"][data-period="2026-09"] button').textContent, '0');
   const plan = table.querySelector('.sheet-rent[data-property="p231"][data-period="2026-12"]');
   assert.ok(plan.classList.contains('sheet-rent-pending')); assert.ok(/план|ожидается/.test(plan.textContent));

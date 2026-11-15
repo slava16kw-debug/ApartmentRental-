@@ -41,3 +41,12 @@ test('CSV preserves month-only precision and Excel export does not assert a rece
   assert.equal(wb.getWorksheet('Поступления').getCell('B2').value, '2026-11');
   assert.equal(wb.getWorksheet('Поступления').getCell('I2').value, 'Только месяц');
 });
+
+test('zero rent remains zero in CSV round trips and Excel exports', async () => {
+  const s = initialState({}, '2026-11-15');
+  s.payments.push({ id: 'vacant', propertyId: 'p741', contractId: '', kind: 'rent', amount: 0, period: '2026-10', date: '2026-10-01', datePrecision: 'month', note: 'Нет жильцов' });
+  const parsed = await readWorkbook(new File([exportCSV(s)], 'export.csv'), initialState({}, '2026-11-15'));
+  assert.equal(parsed.candidates.length, 1); assert.equal(parsed.candidates[0].payload.amount, 0);
+  const wb = new ExcelJS.Workbook(), blob = await exportWorkbook(s, 2026); await wb.xlsx.load(await blob.arrayBuffer());
+  assert.equal(wb.getWorksheet('Поступления').getCell('F2').value, 0);
+});

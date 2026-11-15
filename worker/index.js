@@ -1,6 +1,7 @@
 import html from 'app:html';
 import client from 'app:client';
 import css from 'app:css';
+import workbookCss from 'app:workbook-css';
 import { initialState, validateState } from '../src/domain.js';
 
 const SECURITY = { 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'same-origin', 'Cache-Control': 'no-store' };
@@ -52,6 +53,7 @@ export default {
     let content;
     if (url.pathname === '/assets/app.js') { headers['Content-Type'] = 'text/javascript; charset=utf-8'; content = client; }
     else if (url.pathname === '/assets/style.css') { headers['Content-Type'] = 'text/css; charset=utf-8'; content = css; }
+    else if (url.pathname === '/assets/workbook.css') { headers['Content-Type'] = 'text/css; charset=utf-8'; content = workbookCss; }
     else if (url.pathname === '/favicon.svg') { headers['Content-Type'] = 'image/svg+xml'; content = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="11" fill="#183d35"/><path d="m9 19 11-9 11 9v12h-8v-8h-6v8H9Z" fill="none" stroke="#e3eacb" stroke-width="2"/></svg>'; }
     else if (url.pathname === '/' || !url.pathname.includes('.')) { headers['Content-Type'] = 'text/html; charset=utf-8'; content = html; }
     else return new Response('Not found', { status: 404 });

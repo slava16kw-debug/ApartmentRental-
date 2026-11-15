@@ -1,5 +1,6 @@
 import { RESOURCES, CATEGORIES, MONTHS, uid, today, monthOf, money, number, addMonths, monthRange, dueDate, daysUntil, initialState, activeContract, contractForMonth, paidFor, charges, finances, intervals, usage, validateState, demoState } from './domain.js';
 import { icon, buildingArt } from './icons.js';
+import { renderWorkbook, workbookYears } from './workbook.js';
 import { readWorkbook, exportWorkbook, exportCSV } from './spreadsheet.js';
 
 const app = document.querySelector('#app');
@@ -15,7 +16,7 @@ const resourceIcon = t => ({ water: 'drop', gas: 'flame', power: 'bolt' })[t];
 let state, realState, revision = 0, busy = false, demo = false, currentView = 'overview', meterTab = 'meters', paymentTab = 'charges', sidebarOpen = false;
 let filter = { year: today().slice(0, 4), month: today().slice(5, 7), propertyId: 'all' };
 let selectedImport = [];
-const titles = { overview: ['Обзор портфеля', 'Всё о ваших квартирах — в одном месте.'], properties: ['Мои квартиры', 'Договоры, условия аренды и история изменений.'], payments: ['Аренда и платежи', 'Начисления отдельно. Полученные деньги — под контролем.'], meters: ['Счётчики', 'Показания, потребление и сроки поверки.'], expenses: ['Расходы', 'Каждая трата на своём месте.'], reports: ['Финансовый отчёт', 'Прозрачный результат по фактически полученным и оплаченным суммам.'], settings: ['Настройки', 'Учёт, импорт истории и резервные копии.'] };
+const titles = { overview: ['Показания счётчиков', 'Годовой лист: три квартиры, показания, аренда и расходы.'], analytics: ['Обзор портфеля', 'Доходы, расходы и потребление на графиках.'], properties: ['Мои квартиры', 'Договоры, условия аренды и история изменений.'], payments: ['Аренда и платежи', 'Начисления отдельно. Полученные деньги — под контролем.'], meters: ['Счётчики', 'Показания, потребление и сроки поверки.'], expenses: ['Расходы', 'Каждая трата на своём месте.'], reports: ['Финансовый отчёт', 'Прозрачный результат по фактически полученным и оплаченным суммам.'], settings: ['Настройки', 'Учёт, импорт истории и резервные копии.'] };
 const property = id => state.properties.find(p => p.id === id);
 const propertyOptions = selected => options(state.properties.map(p => [p.id, p.title]), selected);
 const selectedProperty = () => filter.propertyId === 'all' ? state.properties : state.properties.filter(p => p.id === filter.propertyId);
@@ -47,27 +48,30 @@ async function mutate(fn, message = 'Сохранено') {
 function render() {
   const [title, subtitle] = titles[currentView];
   const rentalCount = state.properties.filter(p => p.use === 'rental').length;
-  const nav = [['overview', 'grid', 'Обзор'], ['properties', 'building', 'Квартиры'], ['payments', 'wallet', 'Аренда и платежи'], ['meters', 'gauge', 'Счётчики'], ['expenses', 'receipt', 'Расходы'], ['reports', 'chart', 'Отчёты'], ['settings', 'settings', 'Настройки']];
-  app.innerHTML = `<div class="layout">
+  const nav = [['overview', 'file', 'Годовая таблица'], ['analytics', 'chart', 'Графики'], ['properties', 'building', 'Квартиры'], ['payments', 'wallet', 'Аренда и платежи'], ['meters', 'gauge', 'Счётчики'], ['expenses', 'receipt', 'Расходы'], ['reports', 'chart', 'Отчёты'], ['settings', 'settings', 'Настройки']];
+  app.innerHTML = `<div class="layout sheet-app">
     <aside class="sidebar ${sidebarOpen ? 'open' : ''}">
-      <a class="brand" href="#overview" data-view="overview"><span class="brand-mark">${icon('home')}</span><span><span class="brand-name">Мои квартиры</span><span class="brand-sub" style="display:block">Личное пространство</span></span></a>
+      <a class="brand" href="#overview" data-view="overview"><span class="brand-mark">${icon('home')}</span><span><span class="brand-name">Мои квартиры</span><span class="brand-sub" style="display:block">Учёт аренды и счётчиков</span></span></a>
       <div class="sidebar-caption">УПРАВЛЕНИЕ</div>
       <nav class="nav" aria-label="Основная навигация">${nav.map(([id, ic, name]) => `<button class="${currentView === id ? 'active' : ''}" data-view="${id}">${icon(ic)}${name}${id === 'properties' ? `<span class="count">${state.properties.length}</span>` : ''}</button>`).join('')}</nav>
       <div class="side-bottom"><div class="side-note">${icon('leaf')}<strong>Больше порядка.<br>Меньше забот.</strong>Ваша недвижимость и её финансы всегда под рукой.</div><div class="account"><span class="avatar">МК</span><div><strong>Личный кабинет</strong><p>Приватное пространство</p></div><a href="/signout-with-chatgpt?return_to=/" target="_top" title="Выйти" style="margin-left:auto">${icon('exit')}</a></div></div>
     </aside>
     <main class="main">
       <div class="topbar"><div class="mobile-top-left"><button class="mobile-menu" data-action="menu" aria-label="Открыть меню">${icon('menu')}</button><span class="mobile-brand">${icon('home')}Мои квартиры</span><div class="breadcrumb">${icon('home')}<span>Мои квартиры</span><span>/</span><strong>${esc(title)}</strong></div></div><div class="top-actions"><button class="text-button" data-action="demo">${icon(demo ? 'exit' : 'chart')}<span>${demo ? 'Выйти из примера' : 'Посмотреть пример'}</span></button><span class="sync"><i class="dot"></i>${demo ? 'Демо' : 'В облаке'}</span></div></div>
-      <header class="header"><div><div class="eyebrow">ВАШ ЛИЧНЫЙ КАБИНЕТ</div><h1>${esc(title)}</h1><p class="subtitle">${currentView === 'overview' ? `${state.properties.length} квартиры · ${rentalCount} в аренде · ${state.properties.length - rentalCount} для себя` : esc(subtitle)}</p></div><div class="header-actions">${currentView === 'settings' ? btn('Резервная копия', 'backup', 'download') : `${btn('Показания', 'readings', 'gauge')}${btn('Расход', 'expense', 'plus')}${btn('Получена аренда', 'payment', 'plus', 'primary')}`}</div></header>
+      <header class="header"><div><div class="eyebrow">${currentView === 'overview' ? 'УЧЁТ ПО КВАРТИРАМ' : 'МОИ КВАРТИРЫ'}</div><h1>${esc(title)}</h1><p class="subtitle">${currentView === 'overview' ? `${filter.year} год · ${state.properties.length} квартиры · ${rentalCount} в аренде · ${state.properties.length - rentalCount} для себя` : esc(subtitle)}</p></div><div class="header-actions">${currentView === 'settings' ? btn('Резервная копия', 'backup', 'download') : `${btn('Внести показания', 'readings', 'gauge')}${btn('Расход', 'expense', 'plus')}${btn('Получена аренда', 'payment', 'plus', 'primary')}`}</div></header>
       ${demo ? `<div class="demo-banner">${icon('info')}<span><strong>Демонстрационные данные.</strong> Это пример интерфейса. Ваши реальные записи хранятся отдельно.</span><button class="text-button" data-action="demo">Вернуться к своим данным ${icon('arrow')}</button></div>` : ''}
-      ${currentView !== 'settings' && currentView !== 'properties' ? filters() : ''}
+      ${currentView === 'overview' ? workbookFilters() : currentView !== 'settings' && currentView !== 'properties' ? filters() : ''}
       ${state.settings.importNotice ? `<div class="info-banner">${icon('info')}<span>${esc(state.settings.importNotice)}</span></div>` : ''}
-      <div id="view">${({ overview: dashboard, properties: propertiesView, payments: paymentsView, meters: metersView, expenses: expensesView, reports: reportsView, settings: settingsView })[currentView]()}</div>
-      <footer class="footer"><span>${icon('shield')}Доступ только у вас · Данные сохраняются на сервере</span><span>Мои квартиры · Первая версия 0.1</span></footer>
+      <div id="view">${({ overview: () => renderWorkbook(state, filter), analytics: dashboard, properties: propertiesView, payments: paymentsView, meters: metersView, expenses: expensesView, reports: reportsView, settings: settingsView })[currentView]()}</div>
+      <footer class="footer"><span>${icon('shield')}Доступ только у вас · Данные сохраняются на сервере</span><span>Мои квартиры · Учёт по годам</span></footer>
     </main></div>`;
+}
+function workbookFilters() {
+  return `<div class="filters"><label class="select-wrap">${icon('calendar')}<select aria-label="Год" data-filter="year">${options(workbookYears(state, filter.year).map(y => [y, y + ' год']), filter.year)}</select></label><label class="select-wrap">${icon('building')}<select aria-label="Квартира" data-filter="propertyId">${options([['all', 'Все квартиры рядом'], ...state.properties.map(p => [p.id, p.title])], filter.propertyId)}</select></label><span class="filter-label">${icon('file')}Годовой лист · все 12 месяцев</span></div>`;
 }
 function filters() {
   const years = new Set([today().slice(0, 4), filter.year, ...state.payments.map(p => p.date.slice(0, 4)), ...state.readings.map(p => p.date.slice(0, 4)), ...state.expenses.map(p => p.date.slice(0, 4))]);
-  return `<div class="filters"><label class="select-wrap">${icon('calendar')}<select aria-label="Месяц" data-filter="month">${options([['all', 'Весь год'], ...MONTHS.map((m, i) => [String(i + 1).padStart(2, '0'), m])], filter.month)}</select></label><label class="select-wrap"><select aria-label="Год" data-filter="year">${options([...years].sort().reverse().map(y => [y, y]), filter.year)}</select></label><label class="select-wrap">${icon('building')}<select aria-label="Квартира" data-filter="propertyId">${options([['all', 'Все квартиры'], ...state.properties.map(p => [p.id, p.title])], filter.propertyId)}</select></label><span class="filter-label">${icon('clock')}Обновляется после каждой записи</span></div>`;
+  return `<div class="filters"><label class="select-wrap">${icon('calendar')}<select aria-label="${currentView === 'overview' ? 'Выделить месяц' : 'Месяц'}" title="${currentView === 'overview' ? 'Выделить строку; в таблице всегда виден весь год' : 'Период отчёта'}" data-filter="month">${options([['all', currentView === 'overview' ? 'Все месяцы' : 'Весь год'], ...MONTHS.map((m, i) => [String(i + 1).padStart(2, '0'), m])], filter.month)}</select></label><label class="select-wrap"><select aria-label="Год" data-filter="year">${options([...years].sort().reverse().map(y => [y, y]), filter.year)}</select></label><label class="select-wrap">${icon('building')}<select aria-label="Квартира" data-filter="propertyId">${options([['all', 'Все квартиры'], ...state.properties.map(p => [p.id, p.title])], filter.propertyId)}</select></label><span class="filter-label">${icon('clock')}${currentView === 'overview' ? 'Годовой лист · все 12 месяцев' : 'Обновляется после каждой записи'}</span></div>`;
 }
 function kpi(label, value, foot, ic = 'wallet', cls = '') { const action = label === 'Прибыль за год' ? 'year' : label.includes('Прибыль') ? 'profit' : label.includes('Расходы') ? 'expenses' : 'rent'; return `<button type="button" class="kpi ${cls}" data-action="metric:${action}" style="text-align:left;color:inherit"><div class="kpi-top">${label}${icon(ic)}</div><div class="kpi-value ${value < 0 ? 'negative' : ''}">${money(value)}</div><div class="kpi-foot">${foot}</div></button>`; }
 function dashboard() {
@@ -262,9 +266,9 @@ function expenseForm(id) {
   const update = () => { const show = root.querySelector('[name="paid"]').value === 'true', el = root.querySelector('[name="paidDate"]'); el.required = show; el.closest('.form-field').style.display = show ? '' : 'none'; };
   root.querySelector('[name="paid"]').addEventListener('change', update); update();
 }
-function readingsForm(propertyId) {
+function readingsForm(propertyId, selectedDate) {
   const ps = propertyId ? state.properties.filter(p => p.id === propertyId) : state.properties;
-  const date = monthOf(today()) + '-01';
+  const date = selectedDate || monthOf(today()) + '-01';
   modal('Внести показания', 'Пустые поля можно оставить. Сохранятся только введённые значения.', `${input('date', 'Дата снятия показаний', date, 'date', `required max="${today()}"`, true)}<div style="height:17px"></div>${ps.map(p => `<div class="reading-group"><h3>${esc(p.title)}</h3><div class="reading-inputs">${Object.keys(RESOURCES).map(type => { const m = state.meters.find(m => m.propertyId === p.id && m.type === type && !m.retired); if (!m) return ''; const last = state.readings.filter(r => r.meterId === m.id).sort((a, b) => b.date.localeCompare(a.date))[0]; return input(m.id, `${RESOURCES[type].label}, ${RESOURCES[type].unit}`, '', 'number', 'min="0" step="0.001" inputmode="decimal"', false, last ? `Последнее: ${number(last.value)}<br>${shortDate(last.date)}` : 'Первое задаст начало учёта'); }).join('')}</div></div>`).join('')}`, async fd => {
     const date = fd.get('date'); if (date > today()) throw Error('Фактические показания нельзя внести будущим числом.');
     let count = 0;
@@ -429,7 +433,13 @@ async function handleAction(action, el) {
   if (action === 'payment') return paymentForm(id, period);
   if (action === 'edit-payment') return paymentForm(null, null, id);
   if (action === 'expense') return expenseForm(id);
-  if (action === 'readings') return readingsForm(id);
+  if (action === 'readings') return readingsForm(id, el?.dataset.date);
+  if (action.startsWith('sheet-year:')) { filter.year = action.slice(11); render(); return; }
+  if (action === 'sheet-payments') {
+    const records = state.payments.filter(p => p.propertyId === id && p.kind === 'rent' && p.period === period).sort((a, b) => a.date.localeCompare(b.date));
+    modal('Платежи за месяц', `${esc(property(id)?.title)} · ${shortPeriod(period)}`, `<div class="table-wrap"><table class="data-table"><thead><tr><th>Дата</th><th>Сумма</th><th></th></tr></thead><tbody>${records.map(p => `<tr><td>${paymentDate(p)}</td><td>${money(p.amount)}</td><td><button class="icon-btn" data-action="edit-payment" data-id="${esc(p.id)}" aria-label="Исправить платёж">${icon('edit')}</button></td></tr>`).join('')}</tbody></table></div><div style="margin-top:15px"><button type="button" class="btn primary" data-action="payment" data-id="${esc(id)}" data-period="${period}">${icon('plus')}Получена ещё оплата</button></div>`, null);
+    return;
+  }
   if (action === 'edit-reading') return editReadingForm(id);
   if (action === 'meter') return meterForm(id);
   if (action === 'property') return propertyForm(id);

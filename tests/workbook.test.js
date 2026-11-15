@@ -1,0 +1,46 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { JSDOM } from 'jsdom';
+import { initialState } from '../src/domain.js';
+import { renderWorkbook } from '../src/workbook.js';
+
+test('annual workbook distinguishes readings, calculated usage, received rent, known zero and future plan', () => {
+  const s = initialState({}, '2026-01-01');
+  s.readings.push({ id: 'jan', meterId: 'p231-water', date: '2026-01-01', value: 100 }, { id: 'feb', meterId: 'p231-water', date: '2026-02-01', value: 112 });
+  s.payments.push({ id: 'rent', propertyId: 'p231', contractId: 'c-p231', kind: 'rent', period: '2026-01', date: '2026-01-01', amount: 50000 });
+  s.importHistory = [{ zeroReceipts: [{ propertyId: 'p741', period: '2026-09', amount: 0 }] }];
+  const before = JSON.stringify(s);
+  const dom = new JSDOM(renderWorkbook(s, { year: '2026', month: 'all', propertyId: 'all' }));
+  const d = dom.window.document;
+  const table = d.querySelector('.sheet-readings-table');
+  assert.equal(table.querySelectorAll('tbody tr').length, 12);
+  assert.equal(table.querySelectorAll('thead .sheet-property-head').length, 3);
+  assert.equal(table.querySelector('[data-property="p231"][data-resource="water"][data-period="2026-01"] button').textContent.trim(), '100');
+  assert.equal(table.querySelector('[data-property="p231"][data-resource="water"][data-period="2026-01"] button').dataset.action, 'edit-reading');
+  const empty = table.querySelector('[data-property="p231"][data-resource="gas"][data-period="2026-02"] button');
+  assert.equal(empty.dataset.action, 'readings'); assert.equal(empty.dataset.date, '2026-02-01');
+  const rent = table.querySelector('.sheet-rent[data-property="p231"][data-period="2026-01"] button');
+  assert.equal(rent.textContent.replace(/\D/g, ''), '50000'); assert.equal(rent.dataset.action, 'edit-payment');
+  assert.equal(table.querySelector('.sheet-rent[data-property="p741"][data-period="2026-09"] button').textContent, '0');
+  const plan = table.querySelector('.sheet-rent[data-property="p231"][data-period="2026-12"]');
+  assert.ok(plan.classList.contains('sheet-rent-pending')); assert.ok(/план|ожидается/.test(plan.textContent));
+  const usage = d.querySelector('.sheet-usage-table tbody tr[data-period="2026-01"] [data-property="p231"][data-resource="water"]');
+  assert.equal(usage.textContent, '12');
+  assert.equal(d.querySelector('.sheet-usage-table tbody tr[data-period="2026-02"] [data-property="p231"][data-resource="water"]').textContent, '—');
+  assert.equal(JSON.stringify(s), before, 'Rendering must not mutate saved records');
+  dom.window.close();
+});
+
+test('year and property controls scope the visible workbook without changing the stored portfolio', () => {
+  const s = initialState({}, '2026-11-15');
+  s.readings.push({ id: 'old', meterId: 'p741-gas', date: '2025-01-01', value: 4101 }, { id: 'current', meterId: 'p741-gas', date: '2026-01-01', value: 5258 });
+  const before = JSON.stringify(s);
+  const dom = new JSDOM(renderWorkbook(s, { year: '2025', month: 'all', propertyId: 'p741' }));
+  const d = dom.window.document;
+  assert.equal(d.querySelectorAll('.sheet-readings-table .sheet-property-head').length, 1);
+  assert.equal(d.querySelector('.sheet-readings-table [data-resource="gas"][data-period="2025-01"] button').textContent.replace(/\D/g, ''), '4101');
+  assert.ok(d.querySelector('[data-action="sheet-year:2025"]').classList.contains('active'));
+  assert.ok(d.querySelector('[data-action="sheet-year:2026"]'));
+  assert.equal(JSON.stringify(s), before);
+  dom.window.close();
+});

@@ -17,8 +17,9 @@ test('forms persist rent, rental expenses, residence expenses, and readings thro
   window.eval(script);
   const waitFor = async fn => { for (let i = 0; i < 150; i++) { if (fn()) return; await new Promise(r => setTimeout(r, 10)); } throw Error('Timed out waiting for UI: ' + window.document.body.textContent.slice(-1000)); };
   await waitFor(() => window.document.querySelector('h1'));
-  assert.equal(window.document.querySelector('h1').textContent, 'Обзор портфеля');
-  assert.equal(window.document.querySelectorAll('.property').length, 3);
+  assert.equal(window.document.querySelector('h1').textContent, 'Показания счётчиков');
+  assert.equal(window.document.querySelectorAll('.sheet-readings-table .sheet-property-head').length, 3);
+  assert.equal(window.document.querySelectorAll('.sheet-readings-table tbody tr').length, 12);
   const click = selector => { const el = window.document.querySelector(selector); assert.ok(el, selector); el.click(); };
   const set = (name, value) => { const el = window.document.querySelector(`[name="${name}"]`); assert.ok(el, name); el.value = value; el.dispatchEvent(new window.Event('change', { bubbles: true })); };
   const submit = async () => { window.document.querySelector('#active-form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); await waitFor(() => !window.document.querySelector('#active-form') || window.document.querySelector('#form-error')?.textContent); assert.equal(window.document.querySelector('#form-error')?.textContent || '', ''); };
@@ -32,6 +33,18 @@ test('forms persist rent, rental expenses, residence expenses, and readings thro
   click('[data-action="readings"]'); set('date', addMonths(monthOf(today()), -1) + '-01'); set('p231-water', '858'); await submit();
   click('[data-action="readings"]'); set('date', monthOf(today()) + '-01'); set('p231-water', '870'); await submit();
   saved = await (await worker.fetch(new Request('https://test/api/portfolio'), env)).json(); assert.equal(saved.state.readings.length, 2);
+  // Workbook cells open the existing record or prefill the selected month's date.
+  click(`.sheet-readings-table [data-property="p231"][data-resource="water"][data-period="${monthOf(today())}"] button`);
+  assert.equal(window.document.querySelector('[name="value"]').value, '870');
+  click('[data-action="close"]');
+  click(`.sheet-readings-table [data-property="p231"][data-resource="gas"][data-period="${addMonths(monthOf(today()), -1)}"] button`);
+  assert.equal(window.document.querySelector('[name="date"]').value, addMonths(monthOf(today()), -1) + '-01');
+  click('[data-action="close"]');
+  click(`[data-action="sheet-year:${today().slice(0, 4)}"]`);
+  click('.sheet-chart-tab'); assert.equal(window.document.querySelector('h1').textContent, 'Обзор портфеля');
+  click('[data-view="overview"]'); assert.equal(window.document.querySelectorAll('.sheet-readings-table tbody tr').length, 12);
+  const afterNavigation = await (await worker.fetch(new Request('https://test/api/portfolio'), env)).json();
+  assert.equal(afterNavigation.revision, saved.revision, 'Viewing years, cells and charts must not save records');
   click('[data-view="payments"]'); assert.equal(window.document.querySelector('h1').textContent, 'Аренда и платежи');
   click('[data-view="meters"]'); assert.equal(window.document.querySelectorAll('.meter-card').length, 9);
   click('[data-view="reports"]'); assert.ok(window.document.querySelector('.report-total').textContent.includes('80'));

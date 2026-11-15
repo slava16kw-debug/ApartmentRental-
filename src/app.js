@@ -14,7 +14,9 @@ const statusBadge = status => ({ paid: '<span class="badge green">Получен
 const paymentDate = p => p.datePrecision === 'month' ? `${shortPeriod(monthOf(p.date))}<span class="muted">Точный день не указан</span>` : shortDate(p.date);
 const resourceIcon = t => ({ water: 'drop', gas: 'flame', power: 'bolt' })[t];
 let state, realState, revision = 0, busy = false, demo = false, currentView = 'overview', meterTab = 'meters', paymentTab = 'charges', sidebarOpen = false;
-let filter = { year: today().slice(0, 4), month: today().slice(5, 7), propertyId: 'all' };
+const linkedYear = new URLSearchParams(location.search).get('year');
+const hasLinkedYear = /^20\d{2}$/.test(linkedYear || '');
+let filter = { year: hasLinkedYear ? linkedYear : today().slice(0, 4), month: hasLinkedYear ? 'all' : today().slice(5, 7), propertyId: 'all' };
 let selectedImport = [];
 const titles = { overview: ['Показания счётчиков', 'Годовой лист: три квартиры, показания, аренда и расходы.'], analytics: ['Обзор портфеля', 'Доходы, расходы и потребление на графиках.'], properties: ['Мои квартиры', 'Договоры, условия аренды и история изменений.'], payments: ['Аренда и платежи', 'Начисления отдельно. Полученные деньги — под контролем.'], meters: ['Счётчики', 'Показания, потребление и сроки поверки.'], expenses: ['Расходы', 'Каждая трата на своём месте.'], reports: ['Финансовый отчёт', 'Прозрачный результат по фактически полученным и оплаченным суммам.'], settings: ['Настройки', 'Учёт, импорт истории и резервные копии.'] };
 const property = id => state.properties.find(p => p.id === id);

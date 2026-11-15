@@ -69,6 +69,24 @@ test('rent day clips to last day of February and real zero consumption remains z
 });
 test('demo data passes the same validations as real data', () => { validateState(demoState(now)); });
 
+test('confirmed closed-year rent reconciles only the annual portfolio total without inventing cash movements', () => {
+  const s = initialState({}, '2024-01-01');
+  s.payments.push(payment('one', 'p231', 10000, 'rent', '2024-01-06', '2024-01'), payment('two', 'p741', 20000, 'rent', '2024-02-21', '2024-02'));
+  s.settings.annualRentTotals = { '2024': { amount: 29000, note: 'Месячная детализация уточняется' } };
+  validateState(s);
+  const before = JSON.stringify(s), f = finances(s, { year: 2024, now });
+  assert.equal(f.recordedRent, 30000); assert.equal(f.rent, 29000); assert.equal(f.rentAdjustment, -1000); assert.equal(f.profit, 29000);
+  assert.equal(finances(s, { year: 2024, month: '02', now }).rent, 20000);
+  assert.equal(finances(s, { year: 2024, propertyId: 'p741', now }).rent, 20000);
+  assert.equal(finances(s, { year: 2024, now: '2024-02-22' }).rent, 30000);
+  assert.equal(JSON.stringify(s), before);
+  s.payments[1].amount = 19000;
+  assert.equal(finances(s, { year: 2024, now }).rentAdjustment, 0, 'Resolving a monthly discrepancy clears the derived difference');
+  for (const confirmations of [null, [], {'2024':{amount:-1}}, {'2024':{amount:NaN}}, {'invalid':{amount:100}}]) {
+    s.settings.annualRentTotals = confirmations; assert.throws(() => validateState(s));
+  }
+});
+
 test('full occupancy potential includes vacant months without changing actual rent or charges', () => {
   const s = state();
   s.contracts.find(c => c.propertyId === 'p741').start = '2026-11-16';

@@ -56,11 +56,14 @@ export function finances(s, { year, month = 'all', propertyId = 'all', now = tod
   const ps = s.payments.filter(accepts);
   const es = s.expenses.filter(e => e.paid && e.payer === 'owner' && accepts({ ...e, date: e.paidDate || e.date }));
   const sum = xs => xs.reduce((a, x) => a + cents(x.amount), 0) / 100;
-  const rent = sum(ps.filter(p => p.kind === 'rent' && rented(p.propertyId)));
+  const recordedRent = sum(ps.filter(p => p.kind === 'rent' && rented(p.propertyId)));
+  const confirmation = propertyId === 'all' && month === 'all' && `${year}-12-31` <= now ? s.settings.annualRentTotals?.[year] : null;
+  const rent = confirmation ? confirmation.amount : recordedRent;
+  const rentAdjustment = (cents(rent) - cents(recordedRent)) / 100;
   const reimbursements = sum(ps.filter(p => p.kind === 'reimbursement' && rented(p.propertyId)));
   const expenses = sum(es.filter(e => rented(e.propertyId)));
   const homeExpenses = sum(es.filter(e => !rented(e.propertyId)));
-  return { rent, reimbursements, expenses, homeExpenses, profit: (cents(rent) + cents(reimbursements) - cents(expenses)) / 100, remaining: (cents(rent) + cents(reimbursements) - cents(expenses) - cents(homeExpenses)) / 100 };
+  return { rent, recordedRent, rentAdjustment, reimbursements, expenses, homeExpenses, profit: (cents(rent) + cents(reimbursements) - cents(expenses)) / 100, remaining: (cents(rent) + cents(reimbursements) - cents(expenses) - cents(homeExpenses)) / 100 };
 }
 export function rentPotential(s, { year, propertyId = 'all' }) {
   const properties = s.properties.filter(p => p.use === 'rental' && (propertyId === 'all' || p.id === propertyId)).map(p => {
@@ -100,6 +103,8 @@ export function validateState(s) {
   if (!s || s.schemaVersion !== 1 || !Array.isArray(s.properties) || s.properties.length > 30) throw Error('Неверный формат резервной копии.');
   for (const key of ['contracts', 'meters', 'readings', 'payments', 'expenses', 'tariffs', 'importKeys']) if (!Array.isArray(s[key]) || s[key].length > 30000) throw Error('Некорректный раздел: ' + key);
   if (!isDate(s.settings?.accountingStart) || !Number.isFinite(s.settings.annualGoal) || s.settings.annualGoal < 0) throw Error('Проверьте настройки периода и цели.');
+  const confirmations = s.settings.annualRentTotals;
+  if (confirmations !== undefined && (!confirmations || typeof confirmations !== 'object' || Array.isArray(confirmations) || Object.entries(confirmations).some(([year, row]) => !/^20\d{2}$/.test(year) || !row || !Number.isFinite(row.amount) || row.amount < 0 || row.amount > 1e10))) throw Error('Проверьте подтверждённые годовые итоги аренды.');
   const allIds = new Set();
   for (const key of ['properties', 'contracts', 'meters', 'readings', 'payments', 'expenses', 'tariffs']) {
     for (const x of s[key]) {

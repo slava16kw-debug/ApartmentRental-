@@ -52,6 +52,24 @@ test('year and property controls scope the visible workbook without changing the
   dom.window.close();
 });
 
+test('closed-year reconciliation is a separate undated footer row and is not allocated to a property', () => {
+  const s = initialState({}, '2024-01-01');
+  s.payments.push({id:'rent',propertyId:'p231',contractId:'c-p231',kind:'rent',period:'2024-01',date:'2024-01-06',amount:10000});
+  s.settings.annualRentTotals = {'2024':{amount:9000}};
+  const before = JSON.stringify(s), dom = new JSDOM(renderWorkbook(s,{year:'2024',month:'all',propertyId:'all'}));
+  const d = dom.window.document, row=d.querySelector('.sheet-reconciliation-row');
+  assert.ok(row); assert.match(row.textContent,/не распределена/);
+  assert.ok(row.nextElementSibling.classList.contains('sheet-year-total'));
+  assert.equal(Number(row.children[1].textContent.replace(/\s/g,'')),-1000);
+  const total=d.querySelector('.sheet-year-total');
+  assert.equal(Number(total.children[total.children.length-3].textContent.replace(/\s/g,'')),9000);
+  assert.equal(d.querySelector('.sheet-rent-received button').textContent.replace(/\s/g,''),'10000');
+  assert.equal(d.querySelectorAll('.sheet-readings-table tbody tr').length,12);
+  assert.equal(JSON.stringify(s),before); dom.window.close();
+  const property = new JSDOM(renderWorkbook(s,{year:'2024',month:'all',propertyId:'p231'}));
+  assert.equal(property.window.document.querySelector('.sheet-reconciliation-row'),null); property.window.close();
+});
+
 test('potential row sits between actual totals and meter verification with aligned yearly amounts', () => {
   const s = initialState({}, '2026-01-01');
   s.payments.push({ id: 'rent', propertyId: 'p231', contractId: 'c-p231', kind: 'rent', period: '2026-01', date: '2026-01-06', amount: 50000 });

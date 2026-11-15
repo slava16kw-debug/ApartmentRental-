@@ -50,3 +50,15 @@ test('zero rent remains zero in CSV round trips and Excel exports', async () => 
   const wb = new ExcelJS.Workbook(), blob = await exportWorkbook(s, 2026); await wb.xlsx.load(await blob.arrayBuffer());
   assert.equal(wb.getWorksheet('Поступления').getCell('F2').value, 0);
 });
+
+test('Excel report exposes annual reconciliation separately from the original receipts', async () => {
+  const s = initialState({}, '2024-01-01');
+  s.payments.push({id:'rent',propertyId:'p231',contractId:'c-p231',kind:'rent',period:'2024-01',date:'2024-01-06',amount:10000});
+  s.settings.annualRentTotals = {'2024':{amount:9000,note:'Требуется уточнить месяцы'}};
+  const wb = new ExcelJS.Workbook(), blob = await exportWorkbook(s,2024); await wb.xlsx.load(await blob.arrayBuffer());
+  const report=wb.getWorksheet('Отчёт 2024');
+  assert.equal(report.getCell('A5').value,'Нераспределённая сверка года'); assert.equal(report.getCell('C5').value,-1000);
+  assert.equal(report.getCell('C6').value,9000); assert.equal(report.getCell('F6').value,9000);
+  assert.equal(wb.getWorksheet('Поступления').getCell('F2').value,10000);
+  assert.equal(wb.getWorksheet('Сверка годов').getCell('C2').value,9000);
+});

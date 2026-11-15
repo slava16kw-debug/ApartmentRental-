@@ -71,4 +71,17 @@ test('zero rent survives create, edit, vacancy ranges and reload through the for
   saved = await getState();
   assert.equal(saved.state.payments.length, 3); assert.equal(saved.state.payments.find(p => p.id === originalId).amount, 50000);
   assert.equal(finances(saved.state, { year: today().slice(0, 4) }).rent, 50000);
+  // A future lease is editable before move-in, including its exceptional first due date.
+  const nextMonth = addMonths(per), firstDueDate = nextMonth + '-16';
+  q('[data-view="properties"]').click(); q('[data-action="contract:p741"]').click();
+  set('tenant', 'Будущий арендатор'); set('start', nextMonth + '-01'); set('firstDueDate', firstDueDate);
+  set('dueDay', '21'); await submit();
+  const future = (await getState()).state.contracts.find(c => c.propertyId === 'p741');
+  assert.equal(future.firstDueDate, firstDueDate);
+  q('[data-action="contract:p741"]').click();
+  assert.equal(q('[name="tenant"]').value, 'Будущий арендатор');
+  assert.equal(q('[name="firstDueDate"]').value, firstDueDate);
+  await submit();
+  const contracts = (await getState()).state.contracts.filter(c => c.propertyId === 'p741');
+  assert.equal(contracts.length, 1); assert.equal(contracts[0].id, future.id); assert.equal(contracts[0].firstDueDate, firstDueDate);
 });

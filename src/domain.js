@@ -42,7 +42,7 @@ export function charges(s, through = monthOf(today()), now = today()) {
       const historicalUnknown = c.historyOnly === true && !Object.hasOwn(c.overrides || {}, m);
       const amount = historicalUnknown ? null : c.overrides?.[m] ?? c.rent;
       const paid = paidFor(s, c.id, m, now);
-      const due = dueDate(m, c.dueDay);
+      const due = m === monthOf(c.start) && c.firstDueDate ? c.firstDueDate : dueDate(m, c.dueDay);
       const debt = historicalUnknown ? 0 : Math.max(0, cents(amount) - cents(paid)) / 100;
       out.push({ id: `${c.id}-${m}`, propertyId: p.id, contractId: c.id, tenant: c.tenant, period: m, amount, paid, debt, due: historicalUnknown ? '' : due, status: historicalUnknown ? 'recorded' : debt === 0 ? 'paid' : due < now ? 'late' : paid > 0 ? 'partial' : 'pending' });
       }
@@ -97,6 +97,7 @@ export function validateState(s) {
   for (const p of s.properties) if (!['rental', 'home'].includes(p.use) || typeof p.title !== 'string' || !p.title.trim()) throw Error('Укажите название и назначение квартиры.');
   for (const c of s.contracts) {
     if (!isDate(c.start) || (c.end && (!isDate(c.end) || c.end < c.start)) || !Number.isFinite(c.rent) || c.rent < 0 || !Number.isInteger(c.dueDay) || c.dueDay < 1 || c.dueDay > 31) throw Error('Проверьте даты, ставку и день оплаты договора.');
+    if (c.firstDueDate && (!isDate(c.firstDueDate) || monthOf(c.firstDueDate) !== monthOf(c.start))) throw Error('Дата первого платежа должна быть в месяце начала договора.');
     if (c.overrides && Object.entries(c.overrides).some(([m, v]) => !/^\d{4}-(0[1-9]|1[0-2])$/.test(m) || !Number.isFinite(v) || v < 0)) throw Error('Неверная сумма начисления.');
     for (const other of s.contracts.filter(x => x.propertyId === c.propertyId && x.id !== c.id)) if (c.start <= (other.end || '9999-12-31') && other.start <= (c.end || '9999-12-31')) throw Error('Периоды договоров одной квартиры пересекаются. Завершите предыдущие условия.');
   }

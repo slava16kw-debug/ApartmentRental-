@@ -69,6 +69,20 @@ test('rent day clips to last day of February and real zero consumption remains z
 });
 test('demo data passes the same validations as real data', () => { validateState(demoState(now)); });
 
+test('first rent due date is independent of the recurring day and never creates a receipt', () => {
+  const s = state(), c = s.contracts.find(c => c.propertyId === 'p741');
+  c.start = '2026-11-16'; c.firstDueDate = '2026-11-16'; c.dueDay = 21;
+  validateState(s);
+  const rows = charges(s, '2026-12', now).filter(x => x.contractId === c.id);
+  assert.equal(rows[0].due, '2026-11-16'); assert.equal(rows[0].amount, 35000); assert.equal(rows[0].status, 'pending');
+  assert.equal(rows[1].due, '2026-12-21');
+  assert.equal(finances(s, { year: 2026, now: '2026-11-17' }).rent, 0);
+  assert.equal(charges(s, '2026-11', '2026-11-17').find(x => x.contractId === c.id).status, 'late');
+  for (const value of ['2026-12-16', '2026-11-31', 'invalid']) { c.firstDueDate = value; assert.throws(() => validateState(s)); }
+  c.firstDueDate = ''; validateState(s);
+  assert.equal(charges(s, '2026-11', now).find(x => x.contractId === c.id).due, '2026-11-21');
+});
+
 test('zero rent records are allowed with or without a tenant and preserve contractual debt', () => {
   const s = state();
   s.contracts = s.contracts.filter(c => c.propertyId !== 'p741');

@@ -25,7 +25,7 @@ export function initialState(config = {}, now = today()) {
     properties,
     contracts: properties.filter(p => p.use === 'rental').map((p, i) => ({ id: 'c-' + p.id, propertyId: p.id, tenant: '', phone: '', start, end: '', rent: i === 0 ? 50000 : 35000, dueDay: i === 0 ? 6 : 21, deposit: i === 0 ? 50000 : 35000, note: 'Уточните арендатора и дату начала договора.' })),
     meters: properties.flatMap(p => Object.keys(RESOURCES).map(type => ({ id: `${p.id}-${type}`, propertyId: p.id, type, serial: '', due: config.meterDates?.[p.id]?.[type] || '', retired: false }))),
-    readings: [], payments: [], expenses: [], tariffs: [], importKeys: [],
+    readings: [], payments: [], expenses: [], tariffs: [], importKeys: [], utilities: { items: [], marks: {}, propertyNotes: {} },
   };
 }
 export function activeContract(s, propertyId, date = today()) { return s.contracts.filter(c => c.propertyId === propertyId && c.start <= date && (!c.end || c.end >= date)).sort((a, b) => b.start.localeCompare(a.start))[0]; }
@@ -105,6 +105,19 @@ export function validateState(s) {
   if (!isDate(s.settings?.accountingStart) || !Number.isFinite(s.settings.annualGoal) || s.settings.annualGoal < 0) throw Error('Проверьте настройки периода и цели.');
   const confirmations = s.settings.annualRentTotals;
   if (confirmations !== undefined && (!confirmations || typeof confirmations !== 'object' || Array.isArray(confirmations) || Object.entries(confirmations).some(([year, row]) => !/^20\d{2}$/.test(year) || !row || !Number.isFinite(row.amount) || row.amount < 0 || row.amount > 1e10))) throw Error('Проверьте подтверждённые годовые итоги аренды.');
+  if (s.utilities !== undefined) {
+    const u=s.utilities;
+    if (!u || !Array.isArray(u.items) || u.items.length>300 || !u.marks || typeof u.marks!=='object' || Array.isArray(u.marks) || Object.keys(u.marks).length>600 || !u.propertyNotes || typeof u.propertyNotes!=='object' || Array.isArray(u.propertyNotes)) throw Error('Неверный формат данных ЖКХ.');
+    const ids=new Set();
+    for (const x of u.items) {
+      if (typeof x.id!=='string' || !x.id || ids.has(x.id) || !s.properties.some(p=>p.id===x.propertyId) || typeof x.label!=='string' || !x.label.trim() || x.label.length>120 || typeof x.due!=='string' || x.due.length>150 || !Number.isFinite(x.average) || x.average<0 || x.average>1e7 || !['monthly','quarterly','annual','other'].includes(x.frequency) || typeof x.active!=='boolean' || typeof x.note!=='string' || x.note.length>1000) throw Error('Проверьте название, квартиру, сроки и среднюю сумму квитанции ЖКХ.');
+      ids.add(x.id);
+    }
+    for (const [period,marks] of Object.entries(u.marks)) {
+      if (!/^20\d{2}-(0[1-9]|1[0-2])$/.test(period) || !marks || typeof marks!=='object' || Array.isArray(marks) || Object.entries(marks).some(([id,color])=>!ids.has(id)||!['red','green','orange'].includes(color))) throw Error('Проверьте месяц и цвет отметки ЖКХ.');
+    }
+    if (Object.entries(u.propertyNotes).some(([id,note])=>!s.properties.some(p=>p.id===id)||typeof note!=='string'||note.length>1000)) throw Error('Проверьте примечания к квартире в ЖКХ.');
+  }
   const allIds = new Set();
   for (const key of ['properties', 'contracts', 'meters', 'readings', 'payments', 'expenses', 'tariffs']) {
     for (const x of s[key]) {

@@ -120,6 +120,11 @@ export async function exportWorkbook(state, year) {
   addSheet('Показания', ['ID', 'Дата', 'Квартира', 'Ресурс', 'Значение', 'Единица', 'ID счётчика', 'Комментарий'], state.readings.map(r => { const m = state.meters.find(m => m.id === r.meterId); return [r.id, r.date, property(m.propertyId), RESOURCES[m.type].label, r.value, RESOURCES[m.type].unit, m.id, r.note]; }));
   addSheet('Договоры', ['Квартира', 'Арендатор', 'Телефон', 'Начало', 'Окончание', 'Аренда, ₽', 'День оплаты', 'Залог, ₽', 'Комментарий'], state.contracts.map(c => [property(c.propertyId), c.tenant, c.phone, c.start, c.end, c.rent, c.dueDay, c.deposit, c.note]));
   addSheet('Счётчики', ['ID', 'Квартира', 'Ресурс', 'Номер', 'Следующая поверка', 'Заменён'], state.meters.map(m => [m.id, property(m.propertyId), RESOURCES[m.type].label, m.serial, m.due, m.retired ? 'Да' : 'Нет']));
+  if (state.utilities?.items.length) {
+    const items=state.utilities.items;
+    addSheet('ЖКХ — ориентиры', ['Квартира','Квитанция','Среднее в месяц, ₽','Срок','Периодичность','В основном списке','Примечание'],items.map(x=>[property(x.propertyId),x.label,x.average,x.due,x.frequency,x.active?'Да':'Нет',x.note]));
+    addSheet('ЖКХ — отметки', ['Месяц','Квартира','Квитанция','Цвет'],Object.entries(state.utilities.marks).flatMap(([period,marks])=>Object.entries(marks).map(([id,color])=>{const item=items.find(x=>x.id===id);return [period,property(item.propertyId),item.label,color];})));
+  }
   return new Blob([await wb.xlsx.writeBuffer()], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
 export function exportCSV(state) {

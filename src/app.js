@@ -2,6 +2,7 @@ import { RESOURCES, CATEGORIES, MONTHS, uid, today, monthOf, money, number, addM
 import { icon, buildingArt } from './icons.js';
 import { renderWorkbook, workbookYears } from './workbook.js';
 import { readWorkbook, exportWorkbook, exportCSV } from './spreadsheet.js';
+import { renderUtilities, utilityData, utilityItems, setUtilityColor, resetUtilityColors, UTILITY_FREQUENCIES } from './utilities.js';
 
 const app = document.querySelector('#app');
 const root = document.querySelector('#modal-root');
@@ -17,8 +18,12 @@ let state, realState, revision = 0, busy = false, demo = false, currentView = 'o
 const linkedYear = new URLSearchParams(location.search).get('year');
 const hasLinkedYear = /^20\d{2}$/.test(linkedYear || '');
 let filter = { year: hasLinkedYear ? linkedYear : today().slice(0, 4), month: hasLinkedYear ? 'all' : today().slice(5, 7), propertyId: 'all' };
+const linkedUtilityPeriod = new URLSearchParams(location.search).get('period');
+let utilityPeriod = /^20\d{2}-(0[1-9]|1[0-2])$/.test(linkedUtilityPeriod || '') ? linkedUtilityPeriod : monthOf(today()), utilitiesShowHidden = false;
+let utilityWrites = Promise.resolve();
+if (new URLSearchParams(location.search).get('view') === 'utilities') currentView = 'utilities';
 let selectedImport = [];
-const titles = { overview: ['Показания счётчиков', 'Годовой лист: три квартиры, показания, аренда и расходы.'], analytics: ['Обзор портфеля', 'Доходы, расходы и потребление на графиках.'], properties: ['Мои квартиры', 'Договоры, условия аренды и история изменений.'], payments: ['Аренда и платежи', 'Начисления отдельно. Полученные деньги — под контролем.'], meters: ['Счётчики', 'Показания, потребление и сроки поверки.'], expenses: ['Расходы', 'Каждая трата на своём месте.'], reports: ['Финансовый отчёт', 'Прозрачный результат по фактически полученным и оплаченным суммам.'], settings: ['Настройки', 'Учёт, импорт истории и резервные копии.'] };
+const titles = { utilities: ['ЖКХ', 'Квитанции, средние суммы и отметки оплаты по квартирам.'], overview: ['Показания счётчиков', 'Годовой лист: три квартиры, показания, аренда и расходы.'], analytics: ['Обзор портфеля', 'Доходы, расходы и потребление на графиках.'], properties: ['Мои квартиры', 'Договоры, условия аренды и история изменений.'], payments: ['Аренда и платежи', 'Начисления отдельно. Полученные деньги — под контролем.'], meters: ['Счётчики', 'Показания, потребление и сроки поверки.'], expenses: ['Расходы', 'Каждая трата на своём месте.'], reports: ['Финансовый отчёт', 'Прозрачный результат по фактически полученным и оплаченным суммам.'], settings: ['Настройки', 'Учёт, импорт истории и резервные копии.'] };
 const property = id => state.properties.find(p => p.id === id);
 const propertyOptions = selected => options(state.properties.map(p => [p.id, p.title]), selected);
 const selectedProperty = () => filter.propertyId === 'all' ? state.properties : state.properties.filter(p => p.id === filter.propertyId);
@@ -51,8 +56,8 @@ function render() {
   const [title, subtitle] = titles[currentView];
   const rentalCount = state.properties.filter(p => p.use === 'rental').length;
   const annualCheck = finances(state, { year: filter.year });
-  const reconciliationBanner = annualCheck.rentAdjustment ? `<div class="info-banner">${icon('info')}<span><strong>Сверка ${filter.year} года.</strong> Подтверждено ${money(annualCheck.rent)}, по месячным записям — ${money(annualCheck.recordedRent)}. Разница ${money(annualCheck.rentAdjustment)} включена только в общий годовой итог; по месяцам и квартирам пока не распределена.</span></div>` : '';
-  const nav = [['overview', 'file', 'Годовая таблица'], ['analytics', 'chart', 'Графики'], ['properties', 'building', 'Квартиры'], ['payments', 'wallet', 'Аренда и платежи'], ['meters', 'gauge', 'Счётчики'], ['expenses', 'receipt', 'Расходы'], ['reports', 'chart', 'Отчёты'], ['settings', 'settings', 'Настройки']];
+  const reconciliationBanner = currentView !== 'utilities' && annualCheck.rentAdjustment ? `<div class="info-banner">${icon('info')}<span><strong>Сверка ${filter.year} года.</strong> Подтверждено ${money(annualCheck.rent)}, по месячным записям — ${money(annualCheck.recordedRent)}. Разница ${money(annualCheck.rentAdjustment)} включена только в общий годовой итог; по месяцам и квартирам пока не распределена.</span></div>` : '';
+  const nav = [['overview', 'file', 'Годовая таблица'], ['utilities', 'receipt', 'ЖКХ'], ['analytics', 'chart', 'Графики'], ['properties', 'building', 'Квартиры'], ['payments', 'wallet', 'Аренда и платежи'], ['meters', 'gauge', 'Счётчики'], ['expenses', 'receipt', 'Расходы'], ['reports', 'chart', 'Отчёты'], ['settings', 'settings', 'Настройки']];
   app.innerHTML = `<div class="layout sheet-app">
     <aside class="sidebar ${sidebarOpen ? 'open' : ''}">
       <a class="brand" href="#overview" data-view="overview"><span class="brand-mark">${icon('home')}</span><span><span class="brand-name">Мои квартиры</span><span class="brand-sub" style="display:block">Учёт аренды и счётчиков</span></span></a>
@@ -62,12 +67,12 @@ function render() {
     </aside>
     <main class="main">
       <div class="topbar"><div class="mobile-top-left"><button class="mobile-menu" data-action="menu" aria-label="Открыть меню">${icon('menu')}</button><span class="mobile-brand">${icon('home')}Мои квартиры</span><div class="breadcrumb">${icon('home')}<span>Мои квартиры</span><span>/</span><strong>${esc(title)}</strong></div></div><div class="top-actions"><button class="text-button" data-action="demo">${icon(demo ? 'exit' : 'chart')}<span>${demo ? 'Выйти из примера' : 'Посмотреть пример'}</span></button><span class="sync"><i class="dot"></i>${demo ? 'Демо' : 'В облаке'}</span></div></div>
-      <header class="header"><div><div class="eyebrow">${currentView === 'overview' ? 'УЧЁТ ПО КВАРТИРАМ' : 'МОИ КВАРТИРЫ'}</div><h1>${esc(title)}</h1><p class="subtitle">${currentView === 'overview' ? `${filter.year} год · ${state.properties.length} квартиры · ${rentalCount} в аренде · ${state.properties.length - rentalCount} для себя` : esc(subtitle)}</p></div><div class="header-actions">${currentView === 'settings' ? btn('Резервная копия', 'backup', 'download') : `${btn('Внести показания', 'readings', 'gauge')}${btn('Расход', 'expense', 'plus')}${btn('Получена аренда', 'payment', 'plus', 'primary')}`}</div></header>
+      <header class="header"><div><div class="eyebrow">${currentView === 'overview' ? 'УЧЁТ ПО КВАРТИРАМ' : 'МОИ КВАРТИРЫ'}</div><h1>${esc(title)}</h1><p class="subtitle">${currentView === 'overview' ? `${filter.year} год · ${state.properties.length} квартиры · ${rentalCount} в аренде · ${state.properties.length - rentalCount} для себя` : esc(subtitle)}</p></div><div class="header-actions">${currentView === 'utilities' ? `${btn('Все красные', 'utility-reset', 'refresh')}${btn('Добавить квитанцию', 'utility-item', 'plus', 'primary')}` : currentView === 'settings' ? btn('Резервная копия', 'backup', 'download') : `${btn('Внести показания', 'readings', 'gauge')}${btn('Расход', 'expense', 'plus')}${btn('Получена аренда', 'payment', 'plus', 'primary')}`}</div></header>
       ${demo ? `<div class="demo-banner">${icon('info')}<span><strong>Демонстрационные данные.</strong> Это пример интерфейса. Ваши реальные записи хранятся отдельно.</span><button class="text-button" data-action="demo">Вернуться к своим данным ${icon('arrow')}</button></div>` : ''}
-      ${currentView === 'overview' ? workbookFilters() : currentView !== 'settings' && currentView !== 'properties' ? filters() : ''}
+      ${currentView === 'overview' ? workbookFilters() : !['settings', 'properties', 'utilities'].includes(currentView) ? filters() : ''}
       ${reconciliationBanner}
-      <div id="view">${({ overview: () => renderWorkbook(state, filter), analytics: dashboard, properties: propertiesView, payments: paymentsView, meters: metersView, expenses: expensesView, reports: reportsView, settings: settingsView })[currentView]()}</div>
-      ${currentView !== 'overview' && state.settings.importNotice ? `<div class="info-banner">${icon('info')}<span>${esc(state.settings.importNotice)}</span></div>` : ''}
+      <div id="view">${({ utilities: () => renderUtilities(state, {period:utilityPeriod,propertyId:filter.propertyId,showHidden:utilitiesShowHidden}), overview: () => renderWorkbook(state, filter), analytics: dashboard, properties: propertiesView, payments: paymentsView, meters: metersView, expenses: expensesView, reports: reportsView, settings: settingsView })[currentView]()}</div>
+      ${!['overview','utilities'].includes(currentView) && state.settings.importNotice ? `<div class="info-banner">${icon('info')}<span>${esc(state.settings.importNotice)}</span></div>` : ''}
       <footer class="footer"><span>${icon('shield')}Доступ только у вас · Данные сохраняются на сервере</span><span>Мои квартиры · Учёт по годам</span></footer>
     </main></div>`;
 }
@@ -214,6 +219,27 @@ const select = (name, label, opts, full = false, hint = '') => `<div class="form
 const note = (value = '') => `<div class="form-field full"><label for="f-note">Комментарий</label><textarea id="f-note" name="note" maxlength="1000">${esc(value)}</textarea></div>`;
 const amount = (name, label, value, full = false) => input(name, label, value, 'number', 'step="0.01" min="0.01" inputmode="decimal" required', full);
 const getNumber = (fd, key) => Number(String(fd.get(key) ?? '').replace(/\s/g, '').replace(',', '.'));
+function saveUtilityChange(fn, message) {
+  const operation = utilityWrites.catch(() => {}).then(() => mutate(fn, message));
+  utilityWrites = operation; return operation;
+}
+function utilityItemForm(id, pid) {
+  const old = state.utilities?.items.find(x => x.id === id);
+  const selected = old?.propertyId || pid || (filter.propertyId !== 'all' ? filter.propertyId : state.properties[0]?.id);
+  modal(old ? 'Квитанция ЖКХ' : 'Добавить квитанцию ЖКХ', 'Средняя сумма — справочный ориентир на месяц.', `<div class="form-grid">${select('propertyId','Квартира',propertyOptions(selected),true)}${input('label','Название квитанции / услуги',old?.label || '','text','required maxlength="120"',true)}${input('average','Среднее в месяц, ₽',old?.average ?? '', 'number','required min="0" max="10000000" step="0.01" inputmode="decimal"')}${select('frequency','Периодичность оплаты',options(Object.entries(UTILITY_FREQUENCIES),old?.frequency || 'monthly'))}${input('due','Срок оплаты',old?.due || '','text','maxlength="150"',true,'Например: до 15, с 20 до 25 или до февраля.')}${select('active','Отображение',options([['true','В основном списке'],['false','Скрыть квитанцию']],String(old?.active ?? true)),true)}${note(old?.note || '')}</div><div class="inline-note">Сумма уже является месячным ориентиром и не делится автоматически для квартальных или годовых платежей. Фактическую оплату и сумму расхода вносите во вкладке «Расходы».</div>`, async fd => {
+    if (!String(fd.get('average') ?? '').trim()) throw Error('Укажите среднюю сумму. Можно внести 0 ₽.');
+    const item={...old,id:old?.id || uid(),propertyId:fd.get('propertyId'),label:fd.get('label').trim(),average:getNumber(fd,'average'),frequency:fd.get('frequency'),due:fd.get('due').trim(),active:fd.get('active')==='true',note:fd.get('note').trim()};
+    await utilityWrites.catch(() => {});
+    await mutate(s => { const u=utilityData(s); if(old)u.items[u.items.findIndex(x=>x.id===old.id)]=item;else u.items.push(item); },'Квитанция сохранена');
+  });
+}
+function utilityNotesForm(pid) {
+  const p=property(pid); if(!p)return;
+  modal('Примечания к оплате',esc(p.title),note(state.utilities?.propertyNotes?.[pid] || ''),async fd => {
+    await utilityWrites.catch(() => {});
+    await mutate(s=>{utilityData(s).propertyNotes[pid]=fd.get('note').trim();},'Примечание сохранено');
+  });
+}
 function paymentForm(id, period, editId) {
   const old = state.payments.find(p => p.id === editId);
   const rentals = state.properties.filter(p => p.use === 'rental');
@@ -445,6 +471,13 @@ function metricDetails(kind) {
 }
 async function handleAction(action, el) {
   const id = el?.dataset.id, period = el?.dataset.period;
+  if (action === 'utility-item') return utilityItemForm(id,el?.dataset.property);
+  if (action === 'utility-notes') return utilityNotesForm(id);
+  if (action === 'utility-reset') {
+    const selectedPeriod=utilityPeriod, propertyId=filter.propertyId;
+    if(!utilityItems(state,propertyId).length)return toast('Нет квитанций для отметки.');
+    return saveUtilityChange(s=>resetUtilityColors(s,selectedPeriod,propertyId),'Все квитанции за выбранный месяц отмечены красным');
+  }
   if (action === 'close') return closeModal();
   if (action === 'retry') return boot();
   if (action === 'menu') { sidebarOpen = !sidebarOpen; return render(); }
@@ -491,7 +524,16 @@ document.addEventListener('click', e => {
   if (el.dataset.paymentTab) { paymentTab = el.dataset.paymentTab; render(); return; }
   Promise.resolve(handleAction(el.dataset.action, el)).catch(error => toast(error.message));
 });
-document.addEventListener('change', e => { const key = e.target.dataset.filter; if (key) { filter[key] = e.target.value; render(); } });
+document.addEventListener('change', e => {
+  if (e.target.hasAttribute('data-utility-period')) { if(/^20\d{2}-(0[1-9]|1[0-2])$/.test(e.target.value)){utilityPeriod=e.target.value;render();} return; }
+  if (e.target.hasAttribute('data-utility-hidden')) { utilitiesShowHidden=e.target.checked;render();return; }
+  if (e.target.dataset.utilityColor) {
+    const id=e.target.dataset.utilityColor, color=e.target.value, period=utilityPeriod;
+    e.target.className='utility-status utility-status-'+color;e.target.disabled=true;
+    saveUtilityChange(s=>setUtilityColor(s,id,period,color),'Цвет отметки сохранён').catch(error=>{render();toast(error.message);});return;
+  }
+  const key = e.target.dataset.filter; if (key) { filter[key] = e.target.value; render(); }
+});
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { if (root.firstElementChild) closeModal(); else if (sidebarOpen) { sidebarOpen = false; render(); } }
   if (e.key === 'Tab' && root.firstElementChild) {

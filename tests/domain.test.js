@@ -68,3 +68,17 @@ test('rent day clips to last day of February and real zero consumption remains z
   const s = state(); s.readings.push({ id: 'a', meterId: 'p231-water', date: '2026-01-01', value: 0 }, { id: 'b', meterId: 'p231-water', date: '2026-02-01', value: 0 }); validateState(s); assert.equal(usage(s, 'water', 2026, 'p231')[0].value, 0);
 });
 test('demo data passes the same validations as real data', () => { validateState(demoState(now)); });
+
+test('historical receipts do not invent contractual charges, arrears, or advance balances', () => {
+  const s = state(); s.settings.accountingStart = '2026-01-01';
+  s.contracts.push({ id: 'archive', propertyId: 'p741', start: '2026-01-01', end: '2026-10-31', rent: 0, dueDay: 1, historyOnly: true, tenant: 'Архив', overrides: {} });
+  s.payments.push({ ...payment('history', 'p741', 35000, 'rent', '2026-08-01', '2026-08'), contractId: 'archive', datePrecision: 'month' });
+  validateState(s);
+  const rows = charges(s, '2026-10', now).filter(c => c.contractId === 'archive');
+  assert.equal(rows.find(c => c.period === '2026-08').paid, 35000);
+  assert.ok(rows.every(c => c.amount === null && c.debt === 0 && c.status === 'recorded'));
+  assert.equal(finances(s, { year: 2026, now }).rent, 35000);
+  s.contracts.at(-1).overrides['2026-08'] = 40000;
+  const confirmed = charges(s, '2026-08', now).find(c => c.contractId === 'archive' && c.period === '2026-08');
+  assert.equal(confirmed.amount, 40000); assert.equal(confirmed.debt, 5000);
+});

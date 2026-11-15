@@ -38,11 +38,13 @@ export function charges(s, through = monthOf(today()), now = today()) {
       // A contract's first and last incomplete months are manually adjustable.
       const contracts = s.contracts.filter(c => c.propertyId === p.id && c.start <= dueDate(m, 31) && (!c.end || c.end >= m + '-01'));
       for (const c of contracts) {
-      const amount = c.overrides?.[m] ?? c.rent;
+      // Imported cash receipts do not establish the original contractual debt.
+      const historicalUnknown = c.historyOnly === true && !Object.hasOwn(c.overrides || {}, m);
+      const amount = historicalUnknown ? null : c.overrides?.[m] ?? c.rent;
       const paid = paidFor(s, c.id, m, now);
       const due = dueDate(m, c.dueDay);
-      const debt = Math.max(0, cents(amount) - cents(paid)) / 100;
-      out.push({ id: `${c.id}-${m}`, propertyId: p.id, contractId: c.id, tenant: c.tenant, period: m, amount, paid, debt, due, status: debt === 0 ? 'paid' : due < now ? 'late' : paid > 0 ? 'partial' : 'pending' });
+      const debt = historicalUnknown ? 0 : Math.max(0, cents(amount) - cents(paid)) / 100;
+      out.push({ id: `${c.id}-${m}`, propertyId: p.id, contractId: c.id, tenant: c.tenant, period: m, amount, paid, debt, due: historicalUnknown ? '' : due, status: historicalUnknown ? 'recorded' : debt === 0 ? 'paid' : due < now ? 'late' : paid > 0 ? 'partial' : 'pending' });
       }
     }
   }
@@ -102,6 +104,7 @@ export function validateState(s) {
     if (!Number.isFinite(x.amount) || x.amount <= 0 || x.amount > 1e10 || !isDate(x.date)) throw Error('Укажите корректную дату и положительную сумму.');
     if (key === 'payments') {
       if (!['rent', 'reimbursement', 'deposit_in', 'deposit_out'].includes(x.kind)) throw Error('Неверный вид платежа.');
+      if (x.datePrecision && !['day', 'month'].includes(x.datePrecision)) throw Error('Укажите точность даты платежа.');
       if (x.kind === 'rent' && (!/^\d{4}-(0[1-9]|1[0-2])$/.test(x.period) || !s.contracts.some(c => c.id === x.contractId && c.propertyId === x.propertyId))) throw Error('Выберите договор и месяц оплаты.');
     }
     if (key === 'expenses' && (!['owner', 'tenant'].includes(x.payer) || (x.paid && !isDate(x.paidDate || x.date)))) throw Error('Проверьте плательщика и дату оплаты расхода.');

@@ -42,7 +42,7 @@ export async function readWorkbook(file, state) {
       const date = dateOf(r['дата']), type = r['ресурс'];
       if (r['тип'] === 'reading' && RESOURCES[type]) { const m = state.meters.find(m => !m.retired && m.propertyId === p.id && m.type === type); if (m) push('reading', { id: uid(), meterId: m.id, date, value: numeric(r['значение']), note: r['комментарий'] }, `CSV · ${i + 1}`, `${p.title} · ${RESOURCES[type].label}`); }
       else if (r['тип'] === 'expense') push('expense', { id: uid(), propertyId: p.id, date, amount: numeric(r['сумма']), category: CATEGORIES.includes(r['категория']) ? r['категория'] : 'Прочее', paid: false, paidDate: '', payer: 'owner', period: r['период'], note: r['комментарий'] }, `CSV · ${i + 1}`, `${p.title} · ${r['категория'] || 'Расход'}`);
-      else if (['rent', 'reimbursement', 'deposit_in', 'deposit_out'].includes(r['тип'])) push('payment', { id: uid(), propertyId: p.id, date, amount: numeric(r['сумма']), kind: r['тип'], period: r['период'], method: 'Импорт CSV', note: r['комментарий'] }, `CSV · ${i + 1}`, `${p.title} · ${r['тип']}`);
+      else if (['rent', 'reimbursement', 'deposit_in', 'deposit_out'].includes(r['тип'])) push('payment', { id: uid(), propertyId: p.id, date, datePrecision: r['точность даты'] || 'day', amount: numeric(r['сумма']), kind: r['тип'], period: r['период'], method: 'Импорт CSV', note: r['комментарий'] }, `CSV · ${i + 1}`, `${p.title} · ${r['тип']}`);
     }
   } else {
     if (!/\.xlsx$/i.test(file.name)) throw Error('Выберите файл XLSX или CSV. Старый XLS сначала сохраните как XLSX.');
@@ -80,7 +80,7 @@ export async function readWorkbook(file, state) {
           }
           if (!nextYear && b < 2 && year >= 2023) {
             const raw = val(sheet.getCell(r, col + 4)), n = numeric(raw);
-            if (n && n > 0) push('payment', { id: uid(), propertyId: p.id, kind: 'rent', amount: n * 1000, period, date: period + '-01', method: 'Импорт Excel', note: 'Дата получения условная: 1-е число месяца. Уточните по истории.' }, `${sheet.name}!${sheet.getCell(r, col + 4).address}`, `${p.title} · аренда за ${MONTHS[mi].toLowerCase()} (× 1 000)`);
+            if (n && n > 0) push('payment', { id: uid(), propertyId: p.id, kind: 'rent', amount: n * 1000, period, date: period + '-01', datePrecision: 'month', method: 'Импорт Excel', note: 'Известен только месяц получения. 1-е число — техническая дата для месячного учёта, точный день не указан в источнике.' }, `${sheet.name}!${sheet.getCell(r, col + 4).address}`, `${p.title} · аренда за ${MONTHS[mi].toLowerCase()} (× 1 000)`);
           }
           if (nextYear) break;
         }
@@ -111,7 +111,7 @@ export async function exportWorkbook(state, year) {
   };
   const property = id => state.properties.find(p => p.id === id)?.title || id;
   addSheet('Отчёт ' + year, ['Квартира', 'Назначение', 'Получено аренды, ₽', 'Возмещения, ₽', 'Расходы, ₽', 'Прибыль от аренды, ₽'], state.properties.map(p => { const f = finances(state, { year, propertyId: p.id }); return [p.title, p.use === 'home' ? 'Своё жильё' : 'Аренда', f.rent, f.reimbursements, p.use === 'home' ? f.homeExpenses : f.expenses, p.use === 'home' ? null : f.profit]; }));
-  addSheet('Поступления', ['ID', 'Дата', 'Квартира', 'Вид', 'За месяц', 'Сумма, ₽', 'Способ', 'Комментарий'], state.payments.map(p => [p.id, p.date, property(p.propertyId), p.kind, p.period, p.amount, p.method, p.note]));
+  addSheet('Поступления', ['ID', 'Дата', 'Квартира', 'Вид', 'За месяц', 'Сумма, ₽', 'Способ', 'Комментарий', 'Точность даты'], state.payments.map(p => [p.id, p.datePrecision === 'month' ? p.date.slice(0, 7) : p.date, property(p.propertyId), p.kind, p.period, p.amount, p.method, p.note, p.datePrecision === 'month' ? 'Только месяц' : 'Точная дата']));
   addSheet('Расходы', ['ID', 'Дата', 'Квартира', 'Категория', 'Сумма, ₽', 'Оплачен', 'Дата оплаты', 'Плательщик', 'Период', 'Комментарий'], state.expenses.map(e => [e.id, e.date, property(e.propertyId), e.category, e.amount, e.paid ? 'Да' : 'Нет', e.paidDate, e.payer, e.period, e.note]));
   addSheet('Показания', ['ID', 'Дата', 'Квартира', 'Ресурс', 'Значение', 'Единица', 'ID счётчика', 'Комментарий'], state.readings.map(r => { const m = state.meters.find(m => m.id === r.meterId); return [r.id, r.date, property(m.propertyId), RESOURCES[m.type].label, r.value, RESOURCES[m.type].unit, m.id, r.note]; }));
   addSheet('Договоры', ['Квартира', 'Арендатор', 'Телефон', 'Начало', 'Окончание', 'Аренда, ₽', 'День оплаты', 'Залог, ₽', 'Комментарий'], state.contracts.map(c => [property(c.propertyId), c.tenant, c.phone, c.start, c.end, c.rent, c.dueDay, c.deposit, c.note]));
@@ -119,9 +119,9 @@ export async function exportWorkbook(state, year) {
   return new Blob([await wb.xlsx.writeBuffer()], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
 export function exportCSV(state) {
-  const rows = [['Тип', 'Квартира', 'Дата', 'Ресурс', 'Значение', 'Сумма', 'Период', 'Категория', 'Комментарий']];
+  const rows = [['Тип', 'Квартира', 'Дата', 'Ресурс', 'Значение', 'Сумма', 'Период', 'Категория', 'Комментарий', 'Точность даты']];
   state.readings.forEach(r => { const m = state.meters.find(m => m.id === r.meterId); rows.push(['reading', m.propertyId, r.date, m.type, r.value, '', '', '', r.note]); });
-  state.payments.forEach(p => rows.push([p.kind, p.propertyId, p.date, '', '', p.amount, p.period, '', p.note]));
+  state.payments.forEach(p => rows.push([p.kind, p.propertyId, p.date, '', '', p.amount, p.period, '', p.note, p.datePrecision || 'day']));
   state.expenses.forEach(e => rows.push(['expense', e.propertyId, e.date, '', '', e.amount, e.period, e.category, e.note]));
   const safe = x => { let v = String(x ?? ''); if (/^[=+@\-]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };
   return new Blob(['\uFEFF' + rows.map(r => r.map(safe).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' });

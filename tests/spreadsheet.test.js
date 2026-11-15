@@ -20,6 +20,7 @@ test('legacy workbook separates readings, thousands of rent, ruble expenses, and
   assert.deepEqual(parsed.candidates.filter(c => c.kind === 'payment').map(c => c.payload.amount), [50000, 50000, 35000, 35000]);
   assert.equal(parsed.candidates.filter(c => c.kind === 'expense')[0].payload.amount, 12000);
   assert.ok(parsed.candidates.filter(c => c.kind === 'payment').every(c => !c.selected));
+  assert.ok(parsed.candidates.filter(c => c.kind === 'payment').every(c => c.payload.datePrecision === 'month'));
   assert.ok(!parsed.candidates.some(c => c.payload.amount === 600000));
   s.importKeys = parsed.candidates.map(c => c.key); const again = await readWorkbook(file, s); assert.equal(again.candidates.length, 0);
 });
@@ -29,4 +30,14 @@ test('exported XLSX is readable and CSV export can be previewed for re-import', 
   assert.equal(wb.getWorksheet('Показания').getCell('E2').value, 100);
   const csv = exportCSV(s), f = new File([csv], 'export.csv'); const empty = initialState({}, '2026-11-15'); const parsed = await readWorkbook(f, empty);
   assert.equal(parsed.candidates[0].payload.value, 100); assert.equal(parsed.candidates[0].kind, 'reading');
+});
+
+test('CSV preserves month-only precision and Excel export does not assert a receipt day', async () => {
+  const s = initialState({}, '2026-11-15');
+  s.payments.push({ id: 'p', propertyId: 'p231', contractId: 'c-p231', kind: 'rent', amount: 50000, period: '2026-11', date: '2026-11-01', datePrecision: 'month', note: 'День неизвестен' });
+  const parsed = await readWorkbook(new File([exportCSV(s)], 'export.csv'), initialState({}, '2026-11-15'));
+  assert.equal(parsed.candidates[0].payload.datePrecision, 'month');
+  const blob = await exportWorkbook(s, 2026), wb = new ExcelJS.Workbook(); await wb.xlsx.load(await blob.arrayBuffer());
+  assert.equal(wb.getWorksheet('Поступления').getCell('B2').value, '2026-11');
+  assert.equal(wb.getWorksheet('Поступления').getCell('I2').value, 'Только месяц');
 });

@@ -62,6 +62,21 @@ export function finances(s, { year, month = 'all', propertyId = 'all', now = tod
   const homeExpenses = sum(es.filter(e => !rented(e.propertyId)));
   return { rent, reimbursements, expenses, homeExpenses, profit: (cents(rent) + cents(reimbursements) - cents(expenses)) / 100, remaining: (cents(rent) + cents(reimbursements) - cents(expenses) - cents(homeExpenses)) / 100 };
 }
+export function rentPotential(s, { year, propertyId = 'all' }) {
+  const properties = s.properties.filter(p => p.use === 'rental' && (propertyId === 'all' || p.id === propertyId)).map(p => {
+    // Full occupancy keeps a monthly rate during vacancy; imported receipts do
+    // not establish a rate. Partial-month overrides describe actual obligations.
+    const contracts = s.contracts.filter(c => c.propertyId === p.id && !c.historyOnly).sort((a, b) => a.start.localeCompare(b.start));
+    const months = monthRange(`${year}-01`, `${year}-12`).map(period => {
+      const end = dueDate(period, 31);
+      const c = contracts.filter(c => c.start <= end).at(-1) || contracts[0];
+      return { period, rate: c?.rent ?? null, assumed: !!c && (c.start > end || !!c.end && c.end < period + '-01') };
+    });
+    const rent = months.some(m => m.rate === null) ? null : months.reduce((sum, m) => sum + cents(m.rate), 0) / 100;
+    return { propertyId: p.id, rent, months };
+  });
+  return { properties, rent: properties.some(p => p.rent === null) ? null : properties.reduce((sum, p) => sum + cents(p.rent), 0) / 100 };
+}
 export function intervals(s, meterId) {
   const meter = s.meters.find(m => m.id === meterId);
   const readings = s.readings.filter(r => r.meterId === meterId).sort((a, b) => a.date.localeCompare(b.date));

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { initialState, validateState, finances, charges, usage, intervals, dueDate, demoState } from '../src/domain.js';
+import { initialState, validateState, finances, rentPotential, charges, usage, intervals, dueDate, demoState } from '../src/domain.js';
 const now = '2026-11-15';
 const state = () => initialState({}, now);
 const payment = (id, propertyId, amount, kind = 'rent', date = '2026-11-06', period = '2026-11') => ({ id, propertyId, contractId: 'c-' + propertyId, kind, date, period, amount });
@@ -68,6 +68,40 @@ test('rent day clips to last day of February and real zero consumption remains z
   const s = state(); s.readings.push({ id: 'a', meterId: 'p231-water', date: '2026-01-01', value: 0 }, { id: 'b', meterId: 'p231-water', date: '2026-02-01', value: 0 }); validateState(s); assert.equal(usage(s, 'water', 2026, 'p231')[0].value, 0);
 });
 test('demo data passes the same validations as real data', () => { validateState(demoState(now)); });
+
+test('full occupancy potential includes vacant months without changing actual rent or charges', () => {
+  const s = state();
+  s.contracts.find(c => c.propertyId === 'p741').start = '2026-11-16';
+  s.contracts[0].overrides = { '2026-11': 0 };
+  s.contracts.push({ id: 'archive', propertyId: 'p741', start: '2026-01-01', end: '2026-10-31', rent: 0, dueDay: 21, historyOnly: true });
+  s.payments.push(payment('unpaid', 'p741', 0));
+  const before = JSON.stringify(s), actualCharges = charges(s, '2026-12', now);
+  const potential = rentPotential(s, { year: 2026 });
+  assert.equal(potential.rent, 1020000);
+  assert.deepEqual(potential.properties.map(p => [p.propertyId, p.rent]), [['p231', 600000], ['p741', 420000]]);
+  assert.equal(potential.properties[1].months.filter(m => m.assumed).length, 10);
+  assert.equal(rentPotential(s, { year: 2026, propertyId: 'p17' }).rent, 0);
+  assert.equal(finances(s, { year: 2026, now }).rent, 0);
+  assert.deepEqual(charges(s, '2026-12', now), actualCharges);
+  assert.equal(JSON.stringify(s), before);
+});
+
+test('potential follows rate changes, carries the rate through vacancy, and reports missing rates', () => {
+  const s = state();
+  s.contracts[0].start = '2026-01-01'; s.contracts[0].end = '2026-06-30';
+  s.contracts.push({ id: 'changed', propertyId: 'p231', start: '2026-09-16', end: '', rent: 55000.25, dueDay: 16, overrides: { '2026-09': 10000 } });
+  const potential = rentPotential(s, { year: 2026, propertyId: 'p231' });
+  assert.equal(potential.rent, 620001);
+  assert.equal(potential.properties[0].months[6].rate, 50000);
+  assert.equal(potential.properties[0].months[6].assumed, true);
+  assert.equal(potential.properties[0].months[8].rate, 55000.25);
+  assert.equal(rentPotential(s, { year: 2025, propertyId: 'p231' }).rent, 600000);
+  assert.equal(rentPotential(s, { year: 2027, propertyId: 'p231' }).rent, 660003);
+  s.contracts = s.contracts.filter(c => c.propertyId !== 'p741');
+  assert.equal(rentPotential(s, { year: 2026 }).rent, null);
+  s.contracts.push({ id: 'zero-rate', propertyId: 'p741', start: '2026-01-01', end: '', rent: 0, dueDay: 1 });
+  assert.equal(rentPotential(s, { year: 2026, propertyId: 'p741' }).rent, 0);
+});
 
 test('first rent due date is independent of the recurring day and never creates a receipt', () => {
   const s = state(), c = s.contracts.find(c => c.propertyId === 'p741');

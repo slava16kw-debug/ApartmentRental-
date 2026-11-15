@@ -51,3 +51,34 @@ test('year and property controls scope the visible workbook without changing the
   assert.equal(JSON.stringify(s), before);
   dom.window.close();
 });
+
+test('potential row sits between actual totals and meter verification with aligned yearly amounts', () => {
+  const s = initialState({}, '2026-01-01');
+  s.payments.push({ id: 'rent', propertyId: 'p231', contractId: 'c-p231', kind: 'rent', period: '2026-01', date: '2026-01-06', amount: 50000 });
+  s.payments.push({ id: 'refund', propertyId: 'p231', kind: 'reimbursement', date: '2026-01-10', amount: 2000 });
+  s.expenses.push({ id: 'rent-cost', propertyId: 'p231', amount: 17000, date: '2026-01-05', paid: true, payer: 'owner' }, { id: 'home-cost', propertyId: 'p17', amount: 7000, date: '2026-01-05', paid: true, payer: 'owner' }, { id: 'future-cost', propertyId: 'p741', amount: 9000, date: '2026-12-31', paid: true, payer: 'owner' });
+  const before = JSON.stringify(s);
+  const dom = new JSDOM(renderWorkbook(s, { year: '2026', month: 'all', propertyId: 'all' }));
+  const d = dom.window.document, row = d.querySelector('.sheet-potential-total');
+  const value = el => Number(el.childNodes[0].textContent.replace(/\s/g, ''));
+  assert.ok(row.previousElementSibling.classList.contains('sheet-year-total'));
+  assert.ok(row.nextElementSibling.classList.contains('sheet-verification-row'));
+  assert.equal(value(row.querySelector('[data-potential-property="p231"]')), 600000);
+  assert.equal(value(row.querySelector('[data-potential-property="p741"]')), 420000);
+  assert.equal(value(row.querySelector('[data-potential="rent"]')), 1020000);
+  assert.equal(value(row.querySelector('[data-potential="profit"]')), 1005000);
+  assert.equal(row.querySelectorAll('[data-potential-property]').length, 2);
+  const colspan = tr => [...tr.children].reduce((sum, cell) => sum + cell.colSpan, 0);
+  assert.equal(colspan(row), colspan(row.previousElementSibling));
+  assert.equal(colspan(row), colspan(row.nextElementSibling));
+  assert.equal(JSON.stringify(s), before);
+  dom.window.close();
+  const filtered = new JSDOM(renderWorkbook(s, { year: '2026', month: '01', propertyId: 'p741' }));
+  assert.equal(value(filtered.window.document.querySelector('[data-potential="rent"]')), 420000);
+  filtered.window.close();
+  s.contracts = s.contracts.filter(c => c.propertyId !== 'p741');
+  const unknown = new JSDOM(renderWorkbook(s, { year: '2026', month: 'all', propertyId: 'all' }));
+  assert.equal(unknown.window.document.querySelector('[data-potential="rent"]').textContent, '—');
+  assert.equal(unknown.window.document.querySelector('[data-potential="profit"]').textContent, '—');
+  unknown.window.close();
+});

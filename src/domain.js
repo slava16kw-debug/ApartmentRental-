@@ -50,20 +50,29 @@ export function charges(s, through = monthOf(today()), now = today()) {
   }
   return out;
 }
+export function receivedRentPayments(s, { year, month = 'all', propertyId = 'all', now = today() }) {
+  const rentals = new Set(s.properties.filter(p => p.use === 'rental').map(p => p.id));
+  return s.payments.filter(p => p.kind === 'rent' && rentals.has(p.propertyId) && p.date <= now && p.date.slice(0, 4) === String(year) && (month === 'all' || p.date.slice(5, 7) === String(month).padStart(2, '0')) && (propertyId === 'all' || p.propertyId === propertyId));
+}
+export function paymentMethodKey(method) {
+  return method === 'Наличные' ? 'cash' : method === 'Перевод' ? 'transfer' : method === 'Другое' ? 'other' : 'unspecified';
+}
 export function finances(s, { year, month = 'all', propertyId = 'all', now = today() }) {
   const accepts = x => x.date <= now && x.date.slice(0, 4) === String(year) && (month === 'all' || x.date.slice(5, 7) === String(month).padStart(2, '0')) && (propertyId === 'all' || x.propertyId === propertyId);
   const rented = id => s.properties.find(p => p.id === id)?.use === 'rental';
   const ps = s.payments.filter(accepts);
   const es = s.expenses.filter(e => e.paid && e.payer === 'owner' && accepts({ ...e, date: e.paidDate || e.date }));
   const sum = xs => xs.reduce((a, x) => a + cents(x.amount), 0) / 100;
-  const recordedRent = sum(ps.filter(p => p.kind === 'rent' && rented(p.propertyId)));
+  const rentPayments = receivedRentPayments(s, { year, month, propertyId, now });
+  const recordedRent = sum(rentPayments);
+  const rentMethods = Object.fromEntries(['cash', 'transfer', 'other', 'unspecified'].map(key => [key, sum(rentPayments.filter(p => paymentMethodKey(p.method) === key))]));
   const confirmation = propertyId === 'all' && month === 'all' && `${year}-12-31` <= now ? s.settings.annualRentTotals?.[year] : null;
   const rent = confirmation ? confirmation.amount : recordedRent;
   const rentAdjustment = (cents(rent) - cents(recordedRent)) / 100;
   const reimbursements = sum(ps.filter(p => p.kind === 'reimbursement' && rented(p.propertyId)));
   const expenses = sum(es.filter(e => rented(e.propertyId)));
   const homeExpenses = sum(es.filter(e => !rented(e.propertyId)));
-  return { rent, recordedRent, rentAdjustment, reimbursements, expenses, homeExpenses, profit: (cents(rent) + cents(reimbursements) - cents(expenses)) / 100, remaining: (cents(rent) + cents(reimbursements) - cents(expenses) - cents(homeExpenses)) / 100 };
+  return { rent, recordedRent, rentAdjustment, rentMethods, reimbursements, expenses, homeExpenses, profit: (cents(rent) + cents(reimbursements) - cents(expenses)) / 100, remaining: (cents(rent) + cents(reimbursements) - cents(expenses) - cents(homeExpenses)) / 100 };
 }
 export function rentPotential(s, { year, propertyId = 'all' }) {
   const properties = s.properties.filter(p => p.use === 'rental' && (propertyId === 'all' || p.id === propertyId)).map(p => {

@@ -1,4 +1,4 @@
-import { RESOURCES, CATEGORIES, MONTHS, uid, today, monthOf, money, number, addMonths, monthRange, dueDate, daysUntil, initialState, activeContract, contractForMonth, paidFor, charges, finances, intervals, usage, validateState, demoState } from './domain.js';
+import { RESOURCES, CATEGORIES, MONTHS, uid, today, monthOf, money, number, addMonths, monthRange, dueDate, daysUntil, initialState, activeContract, contractForMonth, paidFor, charges, finances, receivedRentPayments, paymentMethodKey, intervals, usage, validateState, demoState } from './domain.js';
 import { icon, buildingArt } from './icons.js';
 import { renderWorkbook, workbookYears } from './workbook.js';
 import { readWorkbook, exportWorkbook, exportCSV } from './spreadsheet.js';
@@ -10,6 +10,8 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const shortDate = d => d ? d.split('-').reverse().join('.') : 'Не указана';
 const shortPeriod = p => p ? MONTHS[Number(p.slice(5, 7)) - 1] + ' ' + p.slice(0, 4) : '—';
 const options = (xs, selected) => xs.map(([value, label]) => `<option value="${esc(value)}" ${String(selected) === String(value) ? 'selected' : ''}>${esc(label)}</option>`).join('');
+const paymentMethods = [['', 'Не указан'], ['Перевод', 'Перевод'], ['Наличные', 'Наличные'], ['Другое', 'Другое']];
+const selectedPaymentMethod = p => paymentMethodKey(p?.method) === 'unspecified' ? '' : p.method;
 const btn = (label, action, name = 'plus', cls = '') => `<button type="button" class="btn ${cls}" data-action="${action}">${icon(name)}${label}</button>`;
 const statusBadge = status => ({ paid: '<span class="badge green">Получено</span>', late: '<span class="badge red">Просрочено</span>', partial: '<span class="badge amber">Частично</span>', pending: '<span class="badge grey">Ожидается</span>', recorded: '<span class="badge grey">Из Excel</span>' })[status] || '';
 const paymentDate = p => p.datePrecision === 'month' ? `${shortPeriod(monthOf(p.date))}<span class="muted">Точный день не указан</span>` : shortDate(p.date);
@@ -240,6 +242,27 @@ function utilityNotesForm(pid) {
     await mutate(s=>{utilityData(s).propertyNotes[pid]=fd.get('note').trim();},'Примечание сохранено');
   });
 }
+function rentMethodsForm() {
+  const year = filter.year, propertyId = filter.propertyId;
+  const records = receivedRentPayments(state, { year, propertyId }).filter(p => p.amount > 0).sort((a, b) => b.date.localeCompare(a.date) || b.period.localeCompare(a.period));
+  const scope = propertyId === 'all' ? 'Все сдаваемые квартиры' : property(propertyId)?.title;
+  const body = records.length ? `<p class="rent-method-help">Выберите способ получения у нужных платежей. Итоги наличных и переводов пересчитаются после сохранения.</p><div class="table-wrap rent-method-list" role="region" aria-label="Способы получения арендных платежей" tabindex="0"><table class="data-table"><thead><tr><th>Получено / за месяц</th><th>Квартира</th><th>Сумма</th><th>Способ получения</th></tr></thead><tbody>${records.map((p, i) => `<tr><td>${paymentDate(p)}<span class="muted">За ${shortPeriod(p.period)}</span></td><td>${esc(property(p.propertyId)?.title)}</td><td><strong>${money(p.amount)}</strong></td><td><select name="method-${i}" data-rent-method-id="${esc(p.id)}" aria-label="${esc(`${property(p.propertyId)?.title} · за ${shortPeriod(p.period)} · ${money(p.amount)}`)}">${options(paymentMethods, selectedPaymentMethod(p))}</select></td></tr>`).join('')}</tbody></table></div>` : '<div class="inline-note">За выбранный год ещё нет полученной аренды.</div>';
+  modal('Способы получения аренды', `${esc(year)} год · ${esc(scope)}`, body, records.length ? async fd => {
+    const changes = records.flatMap((p, i) => {
+      const method = fd.get(`method-${i}`);
+      if (!paymentMethods.some(([value]) => value === method)) throw Error('Выберите способ получения из списка.');
+      return method === selectedPaymentMethod(p) ? [] : [{ id: p.id, method }];
+    });
+    if (!changes.length) return;
+    await mutate(s => {
+      for (const change of changes) {
+        const payment = s.payments.find(p => p.id === change.id);
+        if (!payment) throw Error('Платёж изменился. Обновите страницу и повторите действие.');
+        payment.method = change.method;
+      }
+    }, 'Способы получения сохранены');
+  } : null, { wide: true, submitLabel: 'Сохранить способы получения' });
+}
 function paymentForm(id, period, editId) {
   const old = state.payments.find(p => p.id === editId);
   const rentals = state.properties.filter(p => p.use === 'rental');
@@ -248,7 +271,7 @@ function paymentForm(id, period, editId) {
   const per = old?.period || period || monthOf(today());
   const defaultContract = state.contracts.find(c => c.id === old?.contractId) || contractForMonth(state, pId, per);
   const debt = charges(state, per).find(c => c.propertyId === pId && c.period === per)?.debt;
-  const body = `<div class="form-grid">${select('propertyId', 'Квартира', options(rentals.map(p => [p.id, p.title]), pId))}${select('kind', 'Вид поступления', options([['rent', 'Арендная плата'], ['reimbursement', 'Возмещение расходов'], ['deposit_in', 'Получение залога'], ['deposit_out', 'Возврат залога']], old?.kind || 'rent'))}${select('contractId', 'Договор / арендатор', contractOptions(pId, old ? old.contractId || '' : defaultContract?.id), true)}${input('date', 'Дата получения', old?.date || today(), 'date', 'required')}${select('datePrecision', 'Точность даты получения', options([['day', 'Точный день известен'], ['month', 'Известен только месяц']], old?.datePrecision || 'day'), false, 'Если известен только месяц, выбранное число используется технически. В истории будет показан только месяц.')}${amount('amount', 'Сумма, ₽', old?.amount ?? (debt || defaultContract?.rent || ''))}${input('period', 'За какой месяц', per, 'month', 'required')}${input('endPeriod', 'По месяц включительно', per, 'month', 'required', false, 'Для нескольких месяцев сумма распределится по начислениям. При сумме 0 ₽ в каждом выбранном месяце сохранится ноль.')}${select('method', 'Способ получения', options(['Перевод', 'Наличные', 'Другое'].map(x => [x, x]), old?.method || 'Перевод'), true)}${note(old?.note)}</div><div class="inline-note">0 ₽ — отметка, что аренда не поступила. Если жильцы съехали, завершите договор в карточке квартиры, чтобы прекратить начисления. Залог хранится отдельно от дохода.</div>`;
+  const body = `<div class="form-grid">${select('propertyId', 'Квартира', options(rentals.map(p => [p.id, p.title]), pId))}${select('kind', 'Вид поступления', options([['rent', 'Арендная плата'], ['reimbursement', 'Возмещение расходов'], ['deposit_in', 'Получение залога'], ['deposit_out', 'Возврат залога']], old?.kind || 'rent'))}${select('contractId', 'Договор / арендатор', contractOptions(pId, old ? old.contractId || '' : defaultContract?.id), true)}${input('date', 'Дата получения', old?.date || today(), 'date', 'required')}${select('datePrecision', 'Точность даты получения', options([['day', 'Точный день известен'], ['month', 'Известен только месяц']], old?.datePrecision || 'day'), false, 'Если известен только месяц, выбранное число используется технически. В истории будет показан только месяц.')}${amount('amount', 'Сумма, ₽', old?.amount ?? (debt || defaultContract?.rent || ''))}${input('period', 'За какой месяц', per, 'month', 'required')}${input('endPeriod', 'По месяц включительно', per, 'month', 'required', false, 'Для нескольких месяцев сумма распределится по начислениям. При сумме 0 ₽ в каждом выбранном месяце сохранится ноль.')}${select('method', 'Способ получения', options(paymentMethods, old ? selectedPaymentMethod(old) : 'Перевод'), true)}${note(old?.note)}</div><div class="inline-note">0 ₽ — отметка, что аренда не поступила. Если жильцы съехали, завершите договор в карточке квартиры, чтобы прекратить начисления. Залог хранится отдельно от дохода.</div>`;
   modal(old ? 'Исправить платёж' : 'Получена аренда', 'Укажите полученную сумму или 0 ₽, если поступления не было.', body, async fd => {
     const item = { id: old?.id || uid(), propertyId: fd.get('propertyId'), contractId: fd.get('contractId'), kind: fd.get('kind'), amount: getNumber(fd, 'amount'), date: fd.get('datePrecision') === 'month' ? monthOf(fd.get('date')) + '-01' : fd.get('date'), datePrecision: fd.get('datePrecision'), period: fd.get('period'), method: fd.get('method'), note: fd.get('note') };
     const end = fd.get('endPeriod');
@@ -483,6 +506,7 @@ async function handleAction(action, el) {
   if (action === 'menu') { sidebarOpen = !sidebarOpen; return render(); }
   if (action === 'payment') return paymentForm(id, period);
   if (action === 'edit-payment') return paymentForm(null, null, id);
+  if (action === 'rent-methods') return rentMethodsForm();
   if (action === 'expense') return expenseForm(id);
   if (action === 'readings') return readingsForm(id, el?.dataset.date);
   if (action.startsWith('sheet-year:')) { filter.year = action.slice(11); render(); return; }

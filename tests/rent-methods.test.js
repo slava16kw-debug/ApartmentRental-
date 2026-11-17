@@ -44,6 +44,11 @@ test('annual method summary uses the whole year and keeps annual reconciliation 
   const d = dom.window.document;
   const value = key => Number(d.querySelector(`[data-rent-method-summary="${key}"]`).textContent.replace(/[^\d-]/g, ''));
   assert.equal(value('cash'), 0); assert.equal(value('transfer'), 0); assert.equal(value('unspecified'), 10000);
+  assert.equal(d.querySelector('.sheet-summary [data-rent-method-summary]'), null);
+  const methods = d.querySelector('.sheet-rent-methods');
+  assert.ok(methods.querySelector('[data-rent-method-summary="cash"]'));
+  assert.ok(methods.previousElementSibling.querySelector('.sheet-expenses-table'), 'Payment methods sit directly below apartment expenses');
+  assert.equal(d.querySelector('[data-summary="rent-percent"]').textContent.replace(/\s/g, ''), '0,9%');
   assert.match(d.querySelector('.sheet-method-note').textContent, /не распределена/);
   assert.match(d.querySelector('.sheet-method-note').textContent.replace(/\s/g, ''), /-1000/);
   assert.equal(JSON.stringify(s), before);

@@ -100,3 +100,36 @@ test('potential row sits between actual totals and meter verification with align
   assert.equal(unknown.window.document.querySelector('[data-potential="profit"]').textContent, '—');
   unknown.window.close();
 });
+
+test('annual summary compares received rent with full occupancy and scopes expenses and percentages by property', () => {
+  const s = initialState({}, '2025-01-01');
+  s.settings.annualGoal = 9999;
+  s.contracts[0].rent = 100; s.contracts[0].overrides = { '2025-01': 0 };
+  s.contracts[1].rent = 50;
+  s.payments.push({ id: 'rent-one', propertyId: 'p231', contractId: 'c-p231', kind: 'rent', period: '2025-01', date: '2025-01-06', amount: 900, method: 'Наличные' }, { id: 'rent-two', propertyId: 'p741', contractId: 'c-p741', kind: 'rent', period: '2025-01', date: '2025-01-21', amount: 100, method: 'Перевод' }, { id: 'refund', propertyId: 'p231', kind: 'reimbursement', date: '2025-01-10', amount: 200 }, { id: 'deposit', propertyId: 'p231', kind: 'deposit_in', date: '2025-01-10', amount: 500 });
+  s.expenses.push({ id: 'owner', propertyId: 'p231', amount: 100, date: '2025-01-05', paid: true, payer: 'owner' }, { id: 'home', propertyId: 'p17', amount: 300, date: '2025-01-05', paid: true, payer: 'owner' }, { id: 'tenant', propertyId: 'p741', amount: 200, date: '2025-01-05', paid: true, payer: 'tenant' }, { id: 'unpaid', propertyId: 'p231', amount: 400, date: '2025-01-05', paid: false, payer: 'owner' });
+  const before = JSON.stringify(s);
+  const inspect = (propertyId, expected) => {
+    const dom = new JSDOM(renderWorkbook(s, { year: '2025', month: '11', propertyId }));
+    try {
+      const d = dom.window.document;
+      for (const [key, value] of Object.entries(expected)) {
+        const displayed = d.querySelector(`[data-summary="${key}"]`).textContent.replace(/\s/g, '');
+        assert.equal(displayed, value, key);
+      }
+      assert.equal(d.querySelector('[data-summary="rent-potential"]').textContent.replace(/[^\d—]/g, ''), d.querySelector('[data-potential="rent"]').textContent.replace(/[^\d—]/g, ''));
+    } finally { dom.window.close(); }
+  };
+  inspect('all', { 'rent-potential': '1800₽', rent: '1000₽', expenses: '100₽', profit: '1100₽', 'rent-percent': '55,6%' });
+  inspect('p231', { 'rent-potential': '1200₽', rent: '900₽', expenses: '100₽', profit: '1000₽', 'rent-percent': '75%' });
+  inspect('p17', { 'rent-potential': '0₽', rent: '0₽', expenses: '0₽', profit: '0₽', 'rent-percent': '—' });
+  assert.equal(JSON.stringify(s), before, 'Changing year and apartment must not save financial data');
+  s.payments.find(p => p.id === 'rent-one').amount = 2000;
+  inspect('p231', { 'rent-percent': '166,7%' });
+  s.contracts[1].rent = 0;
+  inspect('p741', { 'rent-potential': '0₽', 'rent-percent': '—' });
+  s.contracts[1].historyOnly = true;
+  inspect('p741', { 'rent-potential': '—', 'rent-percent': '—' });
+  s.payments = [];
+  inspect('p231', { 'rent-percent': '0%' });
+});

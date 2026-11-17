@@ -2,7 +2,7 @@ import { RESOURCES, CATEGORIES, MONTHS, uid, today, monthOf, money, number, addM
 import { icon, buildingArt } from './icons.js';
 import { renderWorkbook, workbookYears } from './workbook.js';
 import { readWorkbook, exportWorkbook, exportCSV } from './spreadsheet.js';
-import { renderUtilities, utilityData, utilityItems, setUtilityColor, resetUtilityColors, UTILITY_FREQUENCIES } from './utilities.js';
+import { renderUtilities, utilityData, utilityItems, setUtilityColor, setUtilityColors, UTILITY_COLORS, UTILITY_FREQUENCIES } from './utilities.js';
 
 const app = document.querySelector('#app');
 const root = document.querySelector('#modal-root');
@@ -23,6 +23,7 @@ let filter = { year: hasLinkedYear ? linkedYear : today().slice(0, 4), month: ha
 const linkedUtilityPeriod = new URLSearchParams(location.search).get('period');
 let utilityPeriod = /^20\d{2}-(0[1-9]|1[0-2])$/.test(linkedUtilityPeriod || '') ? linkedUtilityPeriod : monthOf(today()), utilitiesShowHidden = false;
 let utilityWrites = Promise.resolve();
+const utilitySelection = new Set();
 if (new URLSearchParams(location.search).get('view') === 'utilities') currentView = 'utilities';
 let selectedImport = [];
 const titles = { utilities: ['ЖКХ', 'Квитанции, средние суммы и отметки оплаты по квартирам.'], overview: ['Показания счётчиков', 'Годовой лист: три квартиры, показания, аренда и расходы.'], analytics: ['Обзор портфеля', 'Доходы, расходы и потребление на графиках.'], properties: ['Мои квартиры', 'Договоры, условия аренды и история изменений.'], payments: ['Аренда и платежи', 'Начисления отдельно. Полученные деньги — под контролем.'], meters: ['Счётчики', 'Показания, потребление и сроки поверки.'], expenses: ['Расходы', 'Каждая трата на своём месте.'], reports: ['Финансовый отчёт', 'Прозрачный результат по фактически полученным и оплаченным суммам.'], settings: ['Настройки', 'Учёт, импорт истории и резервные копии.'] };
@@ -56,6 +57,10 @@ async function mutate(fn, message = 'Сохранено') {
 }
 function render() {
   const [title, subtitle] = titles[currentView];
+  if (currentView === 'utilities') {
+    const visibleIds = new Set(utilityItems(state, filter.propertyId).map(item => item.id));
+    for (const id of utilitySelection) if (!visibleIds.has(id)) utilitySelection.delete(id);
+  }
   const rentalCount = state.properties.filter(p => p.use === 'rental').length;
   const annualCheck = finances(state, { year: filter.year });
   const reconciliationBanner = currentView !== 'utilities' && annualCheck.rentAdjustment ? `<div class="info-banner">${icon('info')}<span><strong>Сверка ${filter.year} года.</strong> Подтверждено ${money(annualCheck.rent)}, по месячным записям — ${money(annualCheck.recordedRent)}. Разница ${money(annualCheck.rentAdjustment)} включена только в общий годовой итог; по месяцам и квартирам пока не распределена.</span></div>` : '';
@@ -73,10 +78,11 @@ function render() {
       ${demo ? `<div class="demo-banner">${icon('info')}<span><strong>Демонстрационные данные.</strong> Это пример интерфейса. Ваши реальные записи хранятся отдельно.</span><button class="text-button" data-action="demo">Вернуться к своим данным ${icon('arrow')}</button></div>` : ''}
       ${currentView === 'overview' ? workbookFilters() : !['settings', 'properties', 'utilities'].includes(currentView) ? filters() : ''}
       ${reconciliationBanner}
-      <div id="view">${({ utilities: () => renderUtilities(state, {period:utilityPeriod,propertyId:filter.propertyId,showHidden:utilitiesShowHidden}), overview: () => renderWorkbook(state, filter), analytics: dashboard, properties: propertiesView, payments: paymentsView, meters: metersView, expenses: expensesView, reports: reportsView, settings: settingsView })[currentView]()}</div>
+      <div id="view">${({ utilities: () => renderUtilities(state, {period:utilityPeriod,propertyId:filter.propertyId,showHidden:utilitiesShowHidden,selectedIds:utilitySelection}), overview: () => renderWorkbook(state, filter), analytics: dashboard, properties: propertiesView, payments: paymentsView, meters: metersView, expenses: expensesView, reports: reportsView, settings: settingsView })[currentView]()}</div>
       ${!['overview','utilities'].includes(currentView) && state.settings.importNotice ? `<div class="info-banner">${icon('info')}<span>${esc(state.settings.importNotice)}</span></div>` : ''}
       <footer class="footer"><span>${icon('shield')}Доступ только у вас · Данные сохраняются на сервере</span><span>Мои квартиры · Учёт по годам</span></footer>
     </main></div>`;
+  app.querySelectorAll('[data-utility-partial]').forEach(input => { input.indeterminate = true; });
 }
 function workbookFilters() {
   return `<div class="filters"><label class="select-wrap">${icon('calendar')}<select aria-label="Год" data-filter="year">${options(workbookYears(state, filter.year).map(y => [y, y + ' год']), filter.year)}</select></label><label class="select-wrap">${icon('building')}<select aria-label="Квартира" data-filter="propertyId">${options([['all', 'Все квартиры рядом'], ...state.properties.map(p => [p.id, p.title])], filter.propertyId)}</select></label><span class="filter-label">${icon('file')}Годовой лист · все 12 месяцев</span></div>`;
@@ -226,6 +232,13 @@ const getNumber = (fd, key) => Number(String(fd.get(key) ?? '').replace(/\s/g, '
 function saveUtilityChange(fn, message) {
   const operation = utilityWrites.catch(() => {}).then(() => mutate(fn, message));
   utilityWrites = operation; return operation;
+}
+async function applyUtilityColors(ids, period, color, message) {
+  await saveUtilityChange(s => setUtilityColors(s, ids, period, color), message);
+  if (utilityPeriod === period) {
+    for (const id of ids) utilitySelection.delete(id);
+    render();
+  }
 }
 function utilityItemForm(id, pid) {
   const old = state.utilities?.items.find(x => x.id === id);
@@ -496,12 +509,19 @@ function metricDetails(kind) {
 }
 async function handleAction(action, el) {
   const id = el?.dataset.id, period = el?.dataset.period;
+  if (action === 'utility-clear-selection') { utilitySelection.clear(); render(); return; }
+  if (action === 'utility-bulk-color') {
+    const ids = utilityItems(state, filter.propertyId).filter(item => utilitySelection.has(item.id)).map(item => item.id);
+    if (!ids.length) return toast('Сначала выберите квитанции.');
+    const color = el.dataset.color, selectedPeriod = utilityPeriod;
+    return applyUtilityColors(ids, selectedPeriod, color, `Цвет «${UTILITY_COLORS[color] || ''}» сохранён: ${ids.length} квитанций`);
+  }
   if (action === 'utility-item') return utilityItemForm(id,el?.dataset.property);
   if (action === 'utility-notes') return utilityNotesForm(id);
   if (action === 'utility-reset') {
     const selectedPeriod=utilityPeriod, propertyId=filter.propertyId;
     if(!utilityItems(state,propertyId).length)return toast('Нет квитанций для отметки.');
-    return saveUtilityChange(s=>resetUtilityColors(s,selectedPeriod,propertyId),'Все квитанции за выбранный месяц отмечены красным');
+    return applyUtilityColors(utilityItems(state,propertyId).map(item=>item.id),selectedPeriod,'red','Все квитанции за выбранный месяц отмечены красным');
   }
   if (action === 'close') return closeModal();
   if (action === 'retry') return boot();
@@ -545,20 +565,34 @@ async function handleAction(action, el) {
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-action],[data-view],[data-meter-tab],[data-payment-tab]');
   if (!el) { if (sidebarOpen && !e.target.closest('.sidebar')) { sidebarOpen = false; render(); } return; }
-  if (el.dataset.view) { e.preventDefault(); currentView = el.dataset.view; sidebarOpen = false; render(); window.scrollTo({ top: 0 }); return; }
+  if (el.dataset.view) { e.preventDefault(); utilitySelection.clear(); currentView = el.dataset.view; sidebarOpen = false; render(); window.scrollTo({ top: 0 }); return; }
   if (el.dataset.meterTab) { meterTab = el.dataset.meterTab; render(); return; }
   if (el.dataset.paymentTab) { paymentTab = el.dataset.paymentTab; render(); return; }
   Promise.resolve(handleAction(el.dataset.action, el)).catch(error => toast(error.message));
 });
 document.addEventListener('change', e => {
-  if (e.target.hasAttribute('data-utility-period')) { if(/^20\d{2}-(0[1-9]|1[0-2])$/.test(e.target.value)){utilityPeriod=e.target.value;render();} return; }
+  if (e.target.hasAttribute('data-utility-period')) { if(/^20\d{2}-(0[1-9]|1[0-2])$/.test(e.target.value)){utilitySelection.clear();utilityPeriod=e.target.value;render();} return; }
+  if (e.target.hasAttribute('data-utility-select-all') || e.target.hasAttribute('data-utility-select-property')) {
+    const propertyId = e.target.dataset.utilitySelectProperty;
+    const items = utilityItems(state, filter.propertyId).filter(item => !propertyId || item.propertyId === propertyId);
+    for (const item of items) { if (e.target.checked) utilitySelection.add(item.id); else utilitySelection.delete(item.id); }
+    render(); return;
+  }
+  if (e.target.hasAttribute('data-utility-select')) {
+    const id = e.target.dataset.utilitySelect;
+    if (utilityItems(state, filter.propertyId).some(item => item.id === id)) {
+      if (e.target.checked) utilitySelection.add(id); else utilitySelection.delete(id);
+      render();
+    }
+    return;
+  }
   if (e.target.hasAttribute('data-utility-hidden')) { utilitiesShowHidden=e.target.checked;render();return; }
   if (e.target.dataset.utilityColor) {
     const id=e.target.dataset.utilityColor, color=e.target.value, period=utilityPeriod;
     e.target.className='utility-status utility-status-'+color;e.target.disabled=true;
     saveUtilityChange(s=>setUtilityColor(s,id,period,color),'Цвет отметки сохранён').catch(error=>{render();toast(error.message);});return;
   }
-  const key = e.target.dataset.filter; if (key) { filter[key] = e.target.value; render(); }
+  const key = e.target.dataset.filter; if (key) { if (currentView === 'utilities' && key === 'propertyId') utilitySelection.clear(); filter[key] = e.target.value; render(); }
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { if (root.firstElementChild) closeModal(); else if (sidebarOpen) { sidebarOpen = false; render(); } }

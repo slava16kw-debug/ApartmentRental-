@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {JSDOM} from 'jsdom';
 import {initialState,validateState,finances} from '../src/domain.js';
-import {utilityItems,utilityColor,utilityAverage,setUtilityColor,resetUtilityColors,renderUtilities} from '../src/utilities.js';
+import {utilityItems,utilityColor,utilityAverage,setUtilityColor,setUtilityColors,resetUtilityColors,renderUtilities} from '../src/utilities.js';
 
 function sample() {
   const s=initialState({},'2026-11-01');
@@ -40,4 +40,22 @@ test('utilities render safe editable rows and keep zero monthly averages visible
   assert.equal(d.querySelector('img'),null);assert.match(d.querySelector('[data-utility-row="a"]').textContent,/<img/);
   assert.match(d.querySelector('[data-utility-row="c"] .utility-average').textContent,/0/);
   assert.equal(JSON.stringify(s),before);dom.window.close();
+});
+
+test('bulk colors apply atomically to selected active receipts in one month without changing finances',()=>{
+  const s=sample();
+  s.utilities.items.push({...s.utilities.items[0],id:'a2'}, {...s.utilities.items[0],id:'hidden',active:false});
+  setUtilityColor(s,'a','2026-11','orange');setUtilityColor(s,'hidden','2026-12','green');
+  const finance=finances(s,{year:2026});
+  setUtilityColors(s,['a','a2','a'],'2026-12','green');
+  assert.equal(utilityColor(s,'a','2026-12'),'green');assert.equal(utilityColor(s,'a2','2026-12'),'green');
+  assert.equal(utilityColor(s,'b','2026-12'),'red');assert.equal(utilityColor(s,'a','2026-11'),'orange');
+  const before=JSON.stringify(s);
+  for(const [ids,period,color] of [[['a','missing'],'2026-12','red'],[['a','hidden'],'2026-12','red'],[['a'],'2026-13','red'],[['a'],'2026-12','blue'],[null,'2026-12','red']]){
+    assert.throws(()=>setUtilityColors(s,ids,period,color));assert.equal(JSON.stringify(s),before,'An invalid batch must not change any mark');
+  }
+  setUtilityColors(s,[],'2026-12','red');assert.equal(JSON.stringify(s),before);
+  resetUtilityColors(s,'2026-12');
+  assert.equal(utilityColor(s,'hidden','2026-12'),'green','A reset must preserve archived receipts');
+  assert.deepEqual(finances(s,{year:2026}),finance);validateState(s);
 });

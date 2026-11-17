@@ -106,7 +106,7 @@ button:focus-visible, a:focus-visible { outline-color: #e5a36d; }
 .sheet-app .mobile-menu, .sheet-app .mobile-brand { display: none; }
 .sheet-app .footer { margin-top: 24px; padding-top: 15px; border-top-color: #eeeeed; color: #72716e; font-size: 9px; }
 
-.workbook { font-family: inherit; color: #3f3e3c; --sheet-grid: #ebebeb; --sheet-blue: #f6f6f5; --sheet-gold: #faf8f4; --sheet-green: #f6f6f5; }
+.workbook { font-family: inherit; color: #3f3e3c; --sheet-grid: #e5eaf0; --sheet-blue: #f0f6ff; --sheet-gold: #fff7e9; --sheet-green: #eef8f1; }
 .sheet-app .sheet-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: none; gap: 12px; margin: 0 0 25px; padding: 0; background: transparent; border: 0; }
 .sheet-app .sheet-summary .sheet-summary-pair { position: relative; display: grid; align-content: start; grid-template-rows: auto auto 1fr; min-width: 0; min-height: 126px; padding: 17px 18px 15px; gap: 10px; background: #fff; border-radius: 11px; box-shadow: 0 2px 6px #36352b03; }
 .sheet-app .sheet-summary .sheet-summary-pair:nth-child(n) { grid-column: auto; border: 1px solid #e9e9e8; }
@@ -242,6 +242,38 @@ button:focus-visible, a:focus-visible { outline-color: #e5a36d; }
 .loading h2 { color: #4e4d4c; }
 .loading-mark { background: #fff2df; color: #d08c38; }
 #toast { left: 50%; color: white; background: #3e3d3c; border-radius: 10px; box-shadow: 0 6px 30px #2f2e2d1a; }
+
+/* Apartment colors stay consistent in readings, resource usage and totals. */
+.sheet-table .sheet-blue { background-color: #f0f6ff; }
+.sheet-table .sheet-gold { background-color: #fff7e9; }
+.sheet-table .sheet-green { background-color: #eef8f1; }
+.sheet-table thead .sheet-blue { background: #eaf2ff; color: #496991; }
+.sheet-table thead .sheet-gold { background: #fff0d8; color: #8a6630; }
+.sheet-table thead .sheet-green { background: #e3f2e8; color: #44735a; }
+.sheet-table .sheet-property-head.sheet-blue { background: #dfeaff; border-top: 3px solid #7fa6de; border-right-color: #adc5e9; }
+.sheet-table .sheet-property-head.sheet-gold { background: #ffeac8; border-top: 3px solid #d9aa64; border-right-color: #e4c38d; }
+.sheet-table .sheet-property-head.sheet-green { background: #dcefe2; border-top: 3px solid #83b596; border-right-color: #add0b9; }
+.sheet-property-head.sheet-blue > div { color: #345b8d; }
+.sheet-property-head.sheet-gold > div { color: #835b25; }
+.sheet-property-head.sheet-green > div { color: #38694c; }
+.sheet-property-head.sheet-blue > div > span::before { background: #608fcf; }
+.sheet-property-head.sheet-gold > div > span::before { background: #c79445; }
+.sheet-property-head.sheet-green > div > span::before { background: #66a17d; }
+.sheet-table tbody .sheet-index.sheet-blue { border-left: 2px solid #adc5e9; }
+.sheet-table tbody .sheet-index.sheet-gold { border-left: 2px solid #e4c38d; }
+.sheet-table tbody .sheet-index.sheet-green { border-left: 2px solid #add0b9; }
+.sheet-readings-table .sheet-rent-received.sheet-blue { background: #dce9ff; color: #345b8d; }
+.sheet-readings-table .sheet-rent-received.sheet-gold { background: #ffe8c2; color: #835b25; }
+.sheet-readings-table .sheet-rent-zero.sheet-blue { background: #edf3fc; color: #7087a6; }
+.sheet-readings-table .sheet-rent-zero.sheet-gold { background: #fcf1df; color: #927c55; }
+.sheet-readings-table .sheet-rent-pending.sheet-blue { background: #f5f8fd; }
+.sheet-readings-table .sheet-rent-pending.sheet-gold { background: #fffbf3; }
+.sheet-table tbody tr:hover > .sheet-blue { background: #e5efff; }
+.sheet-table tbody tr:hover > .sheet-gold { background: #fff0d6; }
+.sheet-table tbody tr:hover > .sheet-green { background: #e0f1e6; }
+.sheet-table .sheet-potential-total > .sheet-blue { background: #eaf2ff; color: #496991; }
+.sheet-table .sheet-potential-total > .sheet-gold { background: #fff0d8; color: #8a6630; }
+.sheet-table .sheet-potential-total > .sheet-green { background: #e3f2e8; color: #44735a; }
 
 @media (min-width: 1680px) {
   .sheet-app .sheet-summary { grid-template-columns: repeat(6, minmax(0, 1fr)); }

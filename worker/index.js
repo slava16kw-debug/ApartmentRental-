@@ -54,7 +54,7 @@ export default {
     if (url.pathname === '/assets/app.js') { headers['Content-Type'] = 'text/javascript; charset=utf-8'; content = client; }
     else if (url.pathname === '/assets/style.css') { headers['Content-Type'] = 'text/css; charset=utf-8'; content = css; }
     else if (url.pathname === '/assets/workbook.css') { headers['Content-Type'] = 'text/css; charset=utf-8'; content = workbookCss; }
-    else if (url.pathname === '/favicon.svg') { headers['Content-Type'] = 'image/svg+xml'; content = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="11" fill="#183d35"/><path d="m9 19 11-9 11 9v12h-8v-8h-6v8H9Z" fill="none" stroke="#e3eacb" stroke-width="2"/></svg>'; }
+    else if (url.pathname === '/favicon.svg') { headers['Content-Type'] = 'image/svg+xml'; content = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="11" fill="#f49a46"/><path d="m9 19 11-9 11 9v12h-8v-8h-6v8H9Z" fill="none" stroke="#ffffff" stroke-width="2"/></svg>'; }
     else if (url.pathname === '/' || !url.pathname.includes('.')) { headers['Content-Type'] = 'text/html; charset=utf-8'; content = html; }
     else return new Response('Not found', { status: 404 });
     headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'";

@@ -1,0 +1,236 @@
+/* Shared semantic colors keep tables, dialogs and payment marks readable in every theme. */
+:root {
+  color-scheme: light;
+  --canvas: #eef0f3;
+  --surface: #ffffff;
+  --surface-soft: #f7f8fa;
+  --surface-raised: #f0f2f5;
+  --surface-hover: #e9edf2;
+  --sidebar-bg: #f5f6f8;
+  --ink: #292d35;
+  --ink-secondary: #505967;
+  --muted: #5a6472;
+  --border: #dfe4eb;
+  --accent: #ee9b50;
+  --accent-ink: #9c531c;
+  --accent-soft: #fff3e5;
+  --primary-bg: #292d35;
+  --primary-ink: #ffffff;
+  --primary-hover: #414855;
+  --blue-soft: #f0f6ff;
+  --blue-head: #dfeaff;
+  --blue-ink: #345b8d;
+  --blue-line: #a8c2e7;
+  --gold-soft: #fff7e9;
+  --gold-head: #ffeac8;
+  --gold-ink: #835b25;
+  --gold-line: #dfbe84;
+  --mint-soft: #eef8f1;
+  --mint-head: #dcefe2;
+  --mint-ink: #38694c;
+  --mint-line: #a2c7ae;
+  --red: #ab3d48;
+  --red-soft: #fff0f1;
+  --red-line: #e9bac1;
+  --amber: #875a1e;
+  --amber-soft: #fff4df;
+  --amber-line: #e3c99f;
+  --green: #27724e;
+  --green-soft: #eaf6ee;
+  --green-line: #b8d9c4;
+  --shadow: 0 3px 16px #222d3c06;
+  --shell-shadow: 0 20px 70px #2531440c, 0 2px 8px #25314404;
+  --overlay: #17213366;
+}
+:root[data-theme="white"] {
+  --canvas: #ffffff;
+  --surface: #ffffff;
+  --surface-soft: #fafafa;
+  --surface-raised: #f5f5f5;
+  --surface-hover: #efefef;
+  --sidebar-bg: #ffffff;
+  --border: #e6e6e6;
+  --shell-shadow: 0 4px 24px #1b243008;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #10141b;
+  --surface: #191f29;
+  --surface-soft: #1e2530;
+  --surface-raised: #252e3b;
+  --surface-hover: #303b4c;
+  --sidebar-bg: #151b24;
+  --ink: #edf1f7;
+  --ink-secondary: #c5cedc;
+  --muted: #a4afbf;
+  --border: #333f50;
+  --accent: #ffb66e;
+  --accent-ink: #ffc38b;
+  --accent-soft: #36291f;
+  --primary-bg: #f3aa62;
+  --primary-ink: #23190f;
+  --primary-hover: #ffc387;
+  --blue-soft: #1b2b42;
+  --blue-head: #253c5a;
+  --blue-ink: #b5d1ff;
+  --blue-line: #5274a0;
+  --gold-soft: #342b21;
+  --gold-head: #483824;
+  --gold-ink: #f3d09a;
+  --gold-line: #8c6e44;
+  --mint-soft: #1d302b;
+  --mint-head: #294238;
+  --mint-ink: #addbbf;
+  --mint-line: #4c7d64;
+  --red: #ffa6b0;
+  --red-soft: #3b242e;
+  --red-line: #85505e;
+  --amber: #f4c77d;
+  --amber-soft: #392f20;
+  --amber-line: #856b3e;
+  --green: #9bd8b3;
+  --green-soft: #20372e;
+  --green-line: #4d7f62;
+  --shadow: 0 3px 16px #00000016;
+  --shell-shadow: 0 20px 70px #00000033;
+  --overlay: #05080dc4;
+}
+html[data-theme] { background: var(--canvas); color: var(--ink); --bg: var(--surface-soft); --dark: var(--ink); }
+html[data-theme] body { background: var(--canvas); color: var(--ink); }
+html[data-theme] :is(h1, h2, h3, h4) { color: var(--ink); }
+html[data-theme] .sheet-app.layout { background: var(--surface); border-color: var(--border); box-shadow: var(--shell-shadow); }
+html[data-theme] .sheet-app .sidebar { background: var(--sidebar-bg); color: var(--ink-secondary); border-right: 1px solid var(--border); }
+html[data-theme] :is(.sheet-app .brand, .sheet-app h1, .sheet-app .brand-name, .sheet-app .mobile-brand, .sheet-app .account strong) { color: var(--ink); }
+html[data-theme] :is(.sheet-app .brand-mark, .sheet-app .account .avatar, .loading-mark) { background: var(--accent-soft); color: var(--accent-ink); }
+html[data-theme] .sheet-app .nav button { color: var(--ink-secondary); }
+html[data-theme] .sheet-app .nav button:hover { background: var(--surface-hover); color: var(--ink); }
+html[data-theme] .sheet-app .nav button.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+html[data-theme] .sheet-app .nav button.active .icon { color: var(--accent-ink); }
+html[data-theme] .sheet-app .nav .count { background: var(--surface-raised); color: var(--muted); }
+html[data-theme] :is(.sheet-app .side-note, .sheet-app .panel, .sheet-caption, .sheet-box-heading, .sheet-section-title, .sheet-toolbar, .utility-footnote, .inline-note, .metrics-strip) { background: var(--surface-soft); color: var(--ink-secondary); border-color: var(--border); }
+html[data-theme] :is(.sheet-app .side-note strong, .sheet-caption h2, .sheet-box-heading h2, .sheet-section-title h2, .sheet-app .section-head h2, .sheet-app .property-title h3, .sheet-app .meter-card h3, .loading h2) { color: var(--ink); }
+html[data-theme] :is(.sheet-app .brand-sub, .sheet-app .sidebar-caption, .sheet-app .breadcrumb, .sheet-app .breadcrumb strong, .sheet-app .breadcrumb .icon, .sheet-app .nav button .icon, .sheet-app .account p, .sheet-app .account > a, .sheet-app .sync, .sheet-app .eyebrow, .sheet-app .subtitle, .sheet-app .filter-label, .sheet-app .footer, .sheet-app .kpi-top, .sheet-app .kpi-foot, .sheet-app .section-head p, .sheet-app .section-head > span, .sheet-caption p, .sheet-caption h2 span, .sheet-caption > span:last-child, .sheet-legend, .sheet-potential-note, .sheet-footnote, .sheet-total-note, .utility-legend, .utility-card-head p, .utility-card-meta, .utility-card-meta small, .utility-card-bottom, .utility-table td small, .utility-period-label, .property-address, .property-tenant, .property-status, .property-numbers span, .property-numbers p, .meter-card .label, .resource-note, .accounting-note, .form-field label, .form-field small, .rent-method-help, .modal-header p, .check-line, .loading, .muted) { color: var(--muted); }
+html[data-theme] :is(.sheet-app .topbar, .sheet-app .account, .sheet-app .footer, .property-numbers, .report-row, .reading-group, .sheet-rent-methods, .sheet-method-summary, .sheet-method-note, .sheet-rent-methods .sheet-method-note) { border-color: var(--border); }
+html[data-theme] :is(.sheet-app .panel, .sheet-app .property, .sheet-app .kpi, .sheet-app .meter-card, .sheet-app .resource-card, .sheet-app .utility-card, .sheet-app .utility-summary > div, .sheet-ledger-panel, .sheet-box, .sheet-scroll, .utility-bulk-toolbar) { border-color: var(--border); }
+html[data-theme] :is(.sheet-app .property, .sheet-app .kpi, .sheet-app .meter-card, .sheet-app .resource-card, .sheet-app .utility-card, .sheet-app .utility-summary > div, .sheet-ledger-panel, .sheet-box, .utility-bulk-toolbar) { background: var(--surface); }
+html[data-theme] .sheet-app .sheet-summary .sheet-summary-pair:nth-child(n) { border-color: var(--border); background: var(--surface); }
+html[data-theme] .sheet-app .sheet-summary .sheet-summary-pair > span { color: var(--muted); background: transparent; }
+html[data-theme] :is(.sheet-app .kpi-value, .sheet-app .sheet-summary .sheet-summary-pair > strong, .sheet-app .sheet-summary .sheet-plan-value, .sheet-app .utility-summary strong, .utility-card-meta strong, .utility-name, .utility-average button, .data-table td strong, .report-row strong) { color: var(--ink); }
+html[data-theme] .sheet-app .sheet-summary .summary-hint { color: var(--muted); }
+html[data-theme] :is(.sheet-app .sheet-summary .summary-ratio:nth-child(n), .sheet-app .kpi.highlight, .sheet-app .utility-summary > div:first-child, .demo-banner) { background: var(--accent-soft); border-color: var(--amber-line); }
+html[data-theme] .sheet-app .sheet-summary .summary-ratio > strong { color: var(--accent-ink); }
+html[data-theme] .summary-progress, html[data-theme] .progress-track { background: var(--surface-raised); }
+html[data-theme] .summary-progress i { background: var(--accent); }
+html[data-theme] :is(.sheet-app .info-banner, .sheet-app .sheet-rent-methods h3, .sheet-no-expenses) { background: var(--surface-soft); color: var(--muted); border-color: var(--border); }
+html[data-theme] :is(.sheet-app .btn, .btn, .icon-btn, .sheet-app .icon-btn, .sheet-app .mobile-menu) { color: var(--ink-secondary); background: var(--surface); border-color: var(--border); }
+html[data-theme] :is(.btn:hover, .sheet-app .btn:hover, .icon-btn:hover) { background: var(--surface-hover); border-color: var(--muted); }
+html[data-theme] :is(.btn.primary, .sheet-app .btn.primary) { background: var(--primary-bg); color: var(--primary-ink); border-color: var(--primary-bg); }
+html[data-theme] :is(.btn.primary:hover, .sheet-app .btn.primary:hover) { background: var(--primary-hover); border-color: var(--primary-hover); }
+html[data-theme] :is(.text-button, .sheet-app .text-button, .sheet-box-heading .text-button, .sheet-app .top-actions .text-button) { color: var(--accent-ink); }
+html[data-theme] :is(input, select, textarea, .rent-method-list select, .form-field input, .form-field select, .form-field textarea, .sheet-app .select-wrap) { background-color: var(--surface); color: var(--ink); border-color: var(--border); }
+html[data-theme] :is(.sheet-app .filters select, .utility-filters select, .utility-filters input[type="month"]) { color: var(--ink-secondary); background: transparent; }
+html[data-theme] :is(.sheet-app .select-wrap .icon, .sheet-app .mobile-menu, .sheet-app .sheet-summary .sheet-summary-pair > span .icon) { color: var(--muted); }
+html[data-theme] :is(input, textarea)::placeholder { color: var(--muted); opacity: 1; }
+html[data-theme] :is(input, select, textarea, button, a):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+html[data-theme] :is(.form-field input, .form-field select, .form-field textarea):focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+html[data-theme] :is(input[type="checkbox"], input[type="radio"]) { accent-color: var(--accent-ink); }
+html[data-theme] .workbook, html[data-theme] .sheet-table { color: var(--ink-secondary); --sheet-grid: var(--border); --sheet-blue: var(--blue-soft); --sheet-gold: var(--gold-soft); --sheet-green: var(--mint-soft); }
+html[data-theme] :is(.sheet-table td, .sheet-table th, .sheet-table thead tr:first-child th, .sheet-expenses-table td, .sheet-expenses-table th, .data-table td, .data-table th, .utility-table th, .utility-table td, .utility-card-meta, .utility-card-head, .sheet-totals-table td, .sheet-totals-table th) { border-color: var(--border); }
+html[data-theme] :is(.sheet-table thead th, .sheet-table .sheet-financial-head, .sheet-expenses-table th, .data-table th, .sheet-app .utility-table th, .sheet-app .utility-card-head, .utility-table tfoot th, .utility-table tfoot td) { background: var(--surface-raised); color: var(--ink-secondary); }
+html[data-theme] :is(.data-table td, .sheet-totals-table td, .sheet-totals-table th, .utility-table tfoot td) { color: var(--ink-secondary); }
+html[data-theme] .sheet-table tbody tr:hover > * { background: var(--surface-hover); }
+html[data-theme] .sheet-table .sheet-blue { background: var(--blue-soft); }
+html[data-theme] .sheet-table .sheet-gold { background: var(--gold-soft); }
+html[data-theme] .sheet-table .sheet-green { background: var(--mint-soft); }
+html[data-theme] .sheet-table thead .sheet-blue, html[data-theme] .sheet-table .sheet-property-head.sheet-blue { background: var(--blue-head); color: var(--blue-ink); border-color: var(--blue-line); }
+html[data-theme] .sheet-table thead .sheet-gold, html[data-theme] .sheet-table .sheet-property-head.sheet-gold { background: var(--gold-head); color: var(--gold-ink); border-color: var(--gold-line); }
+html[data-theme] .sheet-table thead .sheet-green, html[data-theme] .sheet-table .sheet-property-head.sheet-green { background: var(--mint-head); color: var(--mint-ink); border-color: var(--mint-line); }
+html[data-theme] .sheet-property-head.sheet-blue > div { color: var(--blue-ink); }
+html[data-theme] .sheet-property-head.sheet-gold > div { color: var(--gold-ink); }
+html[data-theme] .sheet-property-head.sheet-green > div { color: var(--mint-ink); }
+html[data-theme] :is(.sheet-property-head small, .sheet-property-head button) { color: var(--muted); }
+html[data-theme] .sheet-readings-table .sheet-rent-received.sheet-blue { background: var(--blue-head); color: var(--blue-ink); }
+html[data-theme] .sheet-readings-table .sheet-rent-received.sheet-gold { background: var(--gold-head); color: var(--gold-ink); }
+html[data-theme] .sheet-readings-table :is(.sheet-rent-zero, .sheet-rent-pending) { color: var(--muted); background: var(--surface-soft); }
+html[data-theme] .sheet-table tbody tr:hover > .sheet-blue { background: var(--blue-head); }
+html[data-theme] .sheet-table tbody tr:hover > .sheet-gold { background: var(--gold-head); }
+html[data-theme] .sheet-table tbody tr:hover > .sheet-green { background: var(--mint-head); }
+html[data-theme] .sheet-table tbody .sheet-index.sheet-blue { border-left-color: var(--blue-line); }
+html[data-theme] .sheet-table tbody .sheet-index.sheet-gold { border-left-color: var(--gold-line); }
+html[data-theme] .sheet-table tbody .sheet-index.sheet-green { border-left-color: var(--mint-line); }
+html[data-theme] .sheet-table tfoot .sheet-year-total > * { color: var(--ink); border-top-color: var(--border); }
+html[data-theme] :is(.sheet-month-total, .sheet-table .sheet-potential-total > *, .sheet-method-summary .sheet-summary-pair > span) { background: var(--surface-soft); color: var(--ink-secondary); border-color: var(--border); }
+html[data-theme] :is(.sheet-running-total, .sheet-final-total, .sheet-totals-table .sheet-profit-row > *) { background: var(--mint-soft); color: var(--mint-ink); }
+html[data-theme] .sheet-contract-cell { color: var(--accent-ink); }
+html[data-theme] .sheet-cell-button:hover { background: var(--surface-hover); color: var(--ink); }
+html[data-theme] .sheet-method-value { background: var(--green-soft); color: var(--green); border-color: var(--border); }
+html[data-theme] .sheet-method-transfer { background: var(--blue-soft); color: var(--blue-ink); }
+html[data-theme] :is(.sheet-method-other, .sheet-method-unspecified) { background: var(--amber-soft); color: var(--amber); }
+html[data-theme] .sheet-year-tabs { background: var(--surface); border-color: var(--border); box-shadow: var(--shadow); }
+html[data-theme] :is(.sheet-year-tabs button, .sheet-year-tabs > span, .tabs button) { color: var(--muted); }
+html[data-theme] .sheet-year-tabs button:hover { background: var(--surface-hover); }
+html[data-theme] .sheet-year-tabs button.active { background: var(--accent-soft); color: var(--accent-ink); }
+html[data-theme] .tabs button.active { color: var(--accent-ink); border-bottom-color: var(--accent); }
+html[data-theme] .sheet-scroll { scrollbar-color: var(--muted) var(--surface-soft); }
+html[data-theme] .utility-card .utility-card-head { background: var(--blue-head); }
+html[data-theme] .utility-card.sand .utility-card-head { background: var(--gold-head); }
+html[data-theme] .utility-card.mint .utility-card-head { background: var(--mint-head); }
+html[data-theme] :is(.utility-bulk-all, .utility-property-pick, .utility-bulk-count, .utility-bulk-count small, .utility-bulk-toolbar .utility-bulk-clear, .utility-row-pick span, .utility-table .utility-index, .utility-table .utility-note) { color: var(--muted); }
+html[data-theme] .utility-bulk-count strong { color: var(--ink); }
+html[data-theme] :is(.utility-status, .utility-bulk-color-red, .badge.red, .form-error) { color: var(--red); background: var(--red-soft); border-color: var(--red-line); }
+html[data-theme] :is(.utility-status-orange, .utility-bulk-color-orange, .badge.amber) { color: var(--amber); background: var(--amber-soft); border-color: var(--amber-line); }
+html[data-theme] :is(.utility-status-green, .utility-bulk-color-green, .badge.green) { color: var(--green); background: var(--green-soft); border-color: var(--green-line); }
+html[data-theme] .utility-row-red > td { background: var(--red-soft); }
+html[data-theme] .utility-row-orange > td { background: var(--amber-soft); }
+html[data-theme] .utility-row-green > td { background: var(--green-soft); }
+html[data-theme] .utility-row-red > td:first-child { border-left-color: var(--red-line); }
+html[data-theme] .utility-row-orange > td:first-child { border-left-color: var(--amber-line); }
+html[data-theme] .utility-row-green > td:first-child { border-left-color: var(--green-line); }
+html[data-theme] .badge.grey { background: var(--surface-raised); color: var(--ink-secondary); }
+html[data-theme] .badge.purple { background: var(--blue-soft); color: var(--blue-ink); }
+html[data-theme] :is(.negative, .sheet-app .sheet-summary .sheet-profit-value.negative) { color: var(--red); }
+html[data-theme] .report-row.total strong { color: var(--green); }
+html[data-theme] .property-cover { background: var(--mint-head); }
+html[data-theme] .property-cover.sand { background: var(--gold-head); }
+html[data-theme] .property-cover.lilac { background: var(--blue-head); }
+html[data-theme] .resource-icon { background: var(--blue-soft); color: var(--blue-ink); }
+html[data-theme] .resource-icon.gas { background: var(--gold-soft); color: var(--gold-ink); }
+html[data-theme] .resource-icon.power { background: var(--mint-soft); color: var(--mint-ink); }
+html[data-theme] .chart text { fill: var(--muted); }
+html[data-theme] .chart line { stroke: var(--border); }
+html[data-theme] .chart-empty { background: var(--surface-soft); color: var(--muted); }
+html[data-theme] :is(.legend, .empty, .empty .icon, .meter-reading small, .meter-detail, .settings-block p, .metrics-strip p, .resource-top, .resource-value span, .attention-text p, .attention-item button, .import-row p, .radio-row, .sheet-index, .sheet-empty-cell, .sheet-rent-pending small, .sheet-potential-value small, .utility-summary span, .utility-empty, .sheet-section-title > span, .sheet-toolbar > span) { color: var(--muted); }
+html[data-theme] :is(.empty h3, .kpi-foot strong) { color: var(--ink-secondary); }
+html[data-theme] :is(.attention-item, .file-drop) { border-color: var(--border); }
+html[data-theme] .file-drop { background: var(--surface-soft); color: var(--muted); }
+html[data-theme] :is(.cover-label, .cover-label.home) { background: var(--surface); color: var(--ink-secondary); }
+html[data-theme] :is(.attention-icon, .sheet-reconciliation-row > *, .sheet-due-soon) { background: var(--amber-soft); color: var(--amber); }
+html[data-theme] :is(.attention-icon.red, .sheet-due-late) { background: var(--red-soft); color: var(--red); }
+html[data-theme] :is(.attention-icon.green, .sheet-due-ok) { background: var(--green-soft); color: var(--green); }
+html[data-theme] .sheet-due-missing { background: var(--surface-raised); color: var(--muted); }
+html[data-theme] .sheet-potential-value { background: var(--accent-soft); color: var(--accent-ink); }
+html[data-theme] .sheet-cell-button:hover { outline-color: var(--accent); }
+html[data-theme] .modal-backdrop { background: var(--overlay); }
+html[data-theme] .modal { background: var(--surface); color: var(--ink); border-color: var(--border); }
+html[data-theme] .modal-header { border-color: var(--border); }
+html[data-theme] .modal-header h2 { color: var(--ink); }
+html[data-theme] .modal-footer { background: var(--surface-soft); border-color: var(--border); }
+html[data-theme] #toast { background: var(--ink); color: var(--surface); }
+
+.theme-picker { display: inline-flex; align-items: center; gap: 7px; min-width: 0; padding: 0 9px; min-height: 34px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--ink-secondary); font-size: 11px; }
+.theme-picker-label { color: var(--muted); }
+.theme-picker select { min-height: 32px; padding: 5px 0; max-width: 105px; border: 0; background: transparent; color: var(--ink); cursor: pointer; font: inherit; }
+.theme-picker-swatch { width: 12px; height: 12px; flex-shrink: 0; border: 1px solid var(--muted); border-radius: 50%; background: linear-gradient(90deg, var(--surface) 50%, var(--ink) 50%); }
+.appearance-settings .theme-picker { min-width: 190px; justify-content: space-between; }
+@media (max-width: 740px) {
+  .theme-picker { padding: 0 7px; gap: 5px; }
+  .top-actions .theme-picker-label { display: none; }
+  .top-actions .theme-picker select { max-width: 82px; font-size: 10px; }
+  .sheet-app .top-actions { gap: 8px; }
+}
+@media (max-width: 440px) {
+  .sheet-app .top-actions .sync { display: none; }
+  .sheet-app .mobile-brand { font-size: 11px; }
+  .sheet-app .mobile-top-left { gap: 7px; }
+  .sheet-app .top-actions { gap: 7px; }
+}

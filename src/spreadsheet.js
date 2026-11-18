@@ -102,7 +102,7 @@ export async function readWorkbook(file, state) {
   return { candidates, warnings: [...new Set(warnings)].slice(0, 30), duplicates };
 }
 export async function exportWorkbook(state, year) {
-  const wb = new ExcelJS.Workbook(); wb.creator = 'Мои квартиры'; wb.created = new Date();
+  const wb = new ExcelJS.Workbook(); wb.creator = 'Rental Apart KW'; wb.created = new Date();
   const addSheet = (title, headers, rows) => {
     const s = wb.addWorksheet(title); s.addRow(headers); rows.forEach(r => s.addRow(r));
     s.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 }; s.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF22694F' } }; s.getRow(1).height = 25;

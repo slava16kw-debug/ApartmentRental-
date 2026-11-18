@@ -17,7 +17,7 @@ test('forms persist rent, rental expenses, residence expenses, and readings thro
   window.eval(script);
   const waitFor = async fn => { for (let i = 0; i < 150; i++) { if (fn()) return; await new Promise(r => setTimeout(r, 10)); } throw Error('Timed out waiting for UI: ' + window.document.body.textContent.slice(-1000)); };
   await waitFor(() => window.document.querySelector('h1'));
-  assert.equal(window.document.querySelector('h1').textContent, 'Показания счётчиков');
+  assert.equal(window.document.querySelector('h1').textContent, 'Учёт по квартирам');
   assert.equal(window.document.querySelectorAll('.sheet-readings-table .sheet-property-head').length, 3);
   assert.equal(window.document.querySelectorAll('.sheet-readings-table tbody tr').length, 12);
   const click = selector => { const el = window.document.querySelector(selector); assert.ok(el, selector); el.click(); };

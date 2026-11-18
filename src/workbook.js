@@ -86,7 +86,6 @@ export function renderWorkbook(state, filter) {
   });
   return `<section class="workbook" aria-label="Годовой лист показаний и аренды">
     <div class="sheet-summary" aria-label="Годовая финансовая сводка">
-      <div class="sheet-summary-pair"><span class="sheet-plan-label">${year === today().slice(0, 4) ? 'План аренды' : 'Текущая цель'}${icon('calendar')}</span><button data-action="preferences" type="button" class="sheet-plan-value" title="Изменить годовой план">${money(state.settings.annualGoal)}</button><small class="summary-hint">Ваша цель на год · изменить</small></div>
       <div class="sheet-summary-pair"><span>Потенциальная аренда${icon('building')}</span><strong class="sheet-potential-summary" data-summary="rent-potential" title="За все 12 месяцев при полной загрузке, по ставкам договоров">${potential.rent === null ? '—' : money(potential.rent)}</strong><small class="summary-hint">12 месяцев без простоев</small></div>
       <div class="sheet-summary-pair"><span>Получено за год${icon('wallet')}</span><strong class="sheet-actual-value" data-summary="rent">${money(yearly.rent)}</strong><small class="summary-hint">Фактические поступления</small></div>
       <div class="sheet-summary-pair"><span>Расходы по аренде${icon('receipt')}</span><strong class="sheet-expense-value" data-summary="expenses" title="Оплаченные собственником расходы сдаваемых квартир за выбранный год">${money(yearly.expenses)}</strong><small class="summary-hint">Оплачено за выбранный год</small></div>

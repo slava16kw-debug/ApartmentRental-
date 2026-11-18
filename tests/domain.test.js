@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { initialState, validateState, finances, rentPotential, charges, usage, intervals, dueDate, demoState } from '../src/domain.js';
+import { initialState, validateState, finances, rentPotential, charges, usage, intervals, dueDate, demoState, contractDueDay } from '../src/domain.js';
 const now = '2026-11-15';
 const state = () => initialState({}, now);
 const payment = (id, propertyId, amount, kind = 'rent', date = '2026-11-06', period = '2026-11') => ({ id, propertyId, contractId: 'c-' + propertyId, kind, date, period, amount });
@@ -133,6 +133,44 @@ test('first rent due date is independent of the recurring day and never creates 
   for (const value of ['2026-12-16', '2026-11-31', 'invalid']) { c.firstDueDate = value; assert.throws(() => validateState(s)); }
   c.firstDueDate = ''; validateState(s);
   assert.equal(charges(s, '2026-11', now).find(x => x.contractId === c.id).due, '2026-11-21');
+});
+
+test('archival potential follows receipt periods and confirmed full rates without changing charges or actual rent', () => {
+  const s = initialState({}, '2025-01-01');
+  s.contracts[0].start = '2025-10-06'; s.contracts[0].rent = 400;
+  s.contracts.push({ id: 'archive', propertyId: 'p231', start: '2023-01-01', end: '2025-10-05', rent: 0, dueDay: 1, historyOnly: true, potentialRates: { '2023-02': 100 } });
+  const rent = (id, period, amount, extra = {}) => ({ id, propertyId: 'p231', contractId: 'archive', kind: 'rent', period, date: period + '-01', amount, ...extra });
+  s.payments.push(rent('split-one', '2023-01', 60), rent('split-two', '2023-01', 40), rent('partial', '2023-02', 50), rent('zero', '2023-03', 0), rent('new-rate', '2023-04', 120), rent('next-year', '2024-01', 200, { date: '2024-02-01' }), rent('later-year', '2025-01', 250), rent('overpaid', '2025-10', 9000, { contractId: 'c-p231' }), rent('deposit', '2023-01', 5000, { kind: 'deposit_in' }), rent('future', '2023-06', 8000, { date: '2099-01-01' }));
+  s.settings.accountingStart = '2023-01-01';
+  validateState(s);
+  const before = JSON.stringify(s), originalCharges = charges(s, '2025-12', now), actual = finances(s, { year: 2023, now });
+  const old = rentPotential(s, { year: 2023, propertyId: 'p231', now });
+  assert.equal(old.rent, 1380);
+  assert.equal(old.properties[0].months[0].rate, 100, 'Split receipts are added for their rent month');
+  assert.equal(old.properties[0].months[1].source, 'confirmed');
+  assert.equal(old.properties[0].months[2].rate, 100, 'A zero receipt is not a zero monthly rate');
+  assert.equal(old.properties[0].months[2].assumed, true);
+  assert.equal(rentPotential(s, { year: 2024, propertyId: 'p231', now }).rent, 2400);
+  assert.equal(rentPotential(s, { year: 2025, propertyId: 'p231', now }).rent, 3450, 'Known contractual rates take priority over partial or excess receipts');
+  assert.equal(actual.rent, 270);
+  assert.deepEqual(charges(s, '2025-12', now), originalCharges);
+  assert.deepEqual(finances(s, { year: 2023, now }), actual);
+  assert.equal(JSON.stringify(s), before);
+  for (const bad of [{ '2023-13': 100 }, { '2023-01': -1 }, { '2023-01': NaN }, []]) {
+    s.contracts.at(-1).potentialRates = bad;
+    assert.throws(() => validateState(s));
+  }
+});
+
+test('contract-linked payment day follows its start date and still clips short months', () => {
+  const s = state(), c = s.contracts.find(c => c.propertyId === 'p741');
+  c.start = '2026-11-16'; c.dueDay = 21; c.dueDayFromStart = true;
+  assert.equal(contractDueDay(c), 16);
+  assert.equal(charges(s, '2026-12', now).find(x => x.contractId === c.id && x.period === '2026-12').due, '2026-12-16');
+  c.start = '2026-01-31'; s.settings.accountingStart = '2026-01-01';
+  assert.equal(charges(s, '2026-02', now).find(x => x.contractId === c.id && x.period === '2026-02').due, '2026-02-28');
+  assert.equal(s.payments.length, 0);
+  c.dueDayFromStart = 'yes'; assert.throws(() => validateState(s));
 });
 
 test('zero rent records are allowed with or without a tenant and preserve contractual debt', () => {

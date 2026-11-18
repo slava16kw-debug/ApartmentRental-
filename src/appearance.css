@@ -149,6 +149,11 @@ html[data-theme] .sheet-property-head.sheet-blue > div { color: var(--blue-ink);
 html[data-theme] .sheet-property-head.sheet-gold > div { color: var(--gold-ink); }
 html[data-theme] .sheet-property-head.sheet-green > div { color: var(--mint-ink); }
 html[data-theme] :is(.sheet-property-head small, .sheet-property-head button) { color: var(--muted); }
+.sheet-table .sheet-property-head .sheet-contract-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 7px 10px; }
+.sheet-table .sheet-property-head .sheet-rent-due { display: inline-flex; align-items: baseline; gap: 5px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--ink); font-size: .875rem; line-height: 1.3; font-weight: 500; }
+.sheet-table .sheet-property-head .sheet-rent-due strong { font-weight: 750; white-space: nowrap; }
+.sheet-table.sheet-readings-table thead tr:first-child th, .sheet-table.sheet-usage-table thead tr:first-child th { height: 96px; }
+.sheet-table.sheet-readings-table thead tr:nth-child(2) th, .sheet-table.sheet-usage-table thead tr:nth-child(2) th { top: 96px; }
 html[data-theme] .sheet-readings-table .sheet-rent-received.sheet-blue { background: var(--blue-head); color: var(--blue-ink); }
 html[data-theme] .sheet-readings-table .sheet-rent-received.sheet-gold { background: var(--gold-head); color: var(--gold-ink); }
 html[data-theme] .sheet-readings-table :is(.sheet-rent-zero, .sheet-rent-pending) { color: var(--muted); background: var(--surface-soft); }

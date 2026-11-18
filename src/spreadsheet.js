@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { uid, today, monthOf, MONTHS, CATEGORIES, RESOURCES, finances, validateState } from './domain.js';
+import { uid, today, monthOf, contractDueDay, MONTHS, CATEGORIES, RESOURCES, finances, validateState } from './domain.js';
 
 const val = cell => { const v = cell?.value; if (v == null) return ''; if (v instanceof Date) return v; if (typeof v === 'object') return v.result ?? v.text ?? v.richText?.map(r => r.text).join('') ?? ''; return v; };
 const txt = v => String(v ?? '').trim();
@@ -118,7 +118,7 @@ export async function exportWorkbook(state, year) {
   addSheet('Поступления', ['ID', 'Дата', 'Квартира', 'Вид', 'За месяц', 'Сумма, ₽', 'Способ', 'Комментарий', 'Точность даты'], state.payments.map(p => [p.id, p.datePrecision === 'month' ? p.date.slice(0, 7) : p.date, property(p.propertyId), p.kind, p.period, p.amount, p.method, p.note, p.datePrecision === 'month' ? 'Только месяц' : 'Точная дата']));
   addSheet('Расходы', ['ID', 'Дата', 'Квартира', 'Категория', 'Сумма, ₽', 'Оплачен', 'Дата оплаты', 'Плательщик', 'Период', 'Комментарий'], state.expenses.map(e => [e.id, e.date, property(e.propertyId), e.category, e.amount, e.paid ? 'Да' : 'Нет', e.paidDate, e.payer, e.period, e.note]));
   addSheet('Показания', ['ID', 'Дата', 'Квартира', 'Ресурс', 'Значение', 'Единица', 'ID счётчика', 'Комментарий'], state.readings.map(r => { const m = state.meters.find(m => m.id === r.meterId); return [r.id, r.date, property(m.propertyId), RESOURCES[m.type].label, r.value, RESOURCES[m.type].unit, m.id, r.note]; }));
-  addSheet('Договоры', ['Квартира', 'Арендатор', 'Телефон', 'Начало', 'Окончание', 'Аренда, ₽', 'День оплаты', 'Залог, ₽', 'Комментарий'], state.contracts.map(c => [property(c.propertyId), c.tenant, c.phone, c.start, c.end, c.rent, c.dueDay, c.deposit, c.note]));
+  addSheet('Договоры', ['Квартира', 'Арендатор', 'Телефон', 'Начало', 'Окончание', 'Аренда, ₽', 'День оплаты', 'Залог, ₽', 'Комментарий'], state.contracts.map(c => [property(c.propertyId), c.tenant, c.phone, c.start, c.end, c.rent, contractDueDay(c), c.deposit, c.note]));
   addSheet('Счётчики', ['ID', 'Квартира', 'Ресурс', 'Номер', 'Следующая поверка', 'Заменён'], state.meters.map(m => [m.id, property(m.propertyId), RESOURCES[m.type].label, m.serial, m.due, m.retired ? 'Да' : 'Нет']));
   if (state.utilities?.items.length) {
     const items=state.utilities.items;

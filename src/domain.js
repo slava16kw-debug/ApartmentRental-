@@ -30,6 +30,7 @@ export function initialState(config = {}, now = today()) {
 }
 export function activeContract(s, propertyId, date = today()) { return s.contracts.filter(c => c.propertyId === propertyId && c.start <= date && (!c.end || c.end >= date)).sort((a, b) => b.start.localeCompare(a.start))[0]; }
 export function contractForMonth(s, propertyId, period) { const end = dueDate(period, 31); return s.contracts.filter(c => c.propertyId === propertyId && c.start <= end && (!c.end || c.end >= period + '-01')).sort((a, b) => b.start.localeCompare(a.start))[0]; }
+export function contractDueDay(contract) { return contract?.dueDayFromStart && isDate(contract.start) ? Number(contract.start.slice(8, 10)) : contract?.dueDay; }
 export function paidFor(s, contractId, period, now = today()) { return s.payments.filter(p => p.kind === 'rent' && p.contractId === contractId && p.period === period && p.date <= now).reduce((a, p) => a + cents(p.amount), 0) / 100; }
 export function charges(s, through = monthOf(today()), now = today()) {
   const out = [];
@@ -42,7 +43,7 @@ export function charges(s, through = monthOf(today()), now = today()) {
       const historicalUnknown = c.historyOnly === true && !Object.hasOwn(c.overrides || {}, m);
       const amount = historicalUnknown ? null : c.overrides?.[m] ?? c.rent;
       const paid = paidFor(s, c.id, m, now);
-      const due = m === monthOf(c.start) && c.firstDueDate ? c.firstDueDate : dueDate(m, c.dueDay);
+      const due = m === monthOf(c.start) && c.firstDueDate ? c.firstDueDate : dueDate(m, contractDueDay(c));
       const debt = historicalUnknown ? 0 : Math.max(0, cents(amount) - cents(paid)) / 100;
       out.push({ id: `${c.id}-${m}`, propertyId: p.id, contractId: c.id, tenant: c.tenant, period: m, amount, paid, debt, due: historicalUnknown ? '' : due, status: historicalUnknown ? 'recorded' : debt === 0 ? 'paid' : due < now ? 'late' : paid > 0 ? 'partial' : 'pending' });
       }
@@ -74,15 +75,31 @@ export function finances(s, { year, month = 'all', propertyId = 'all', now = tod
   const homeExpenses = sum(es.filter(e => !rented(e.propertyId)));
   return { rent, recordedRent, rentAdjustment, rentMethods, reimbursements, expenses, homeExpenses, profit: (cents(rent) + cents(reimbursements) - cents(expenses)) / 100, remaining: (cents(rent) + cents(reimbursements) - cents(expenses) - cents(homeExpenses)) / 100 };
 }
-export function rentPotential(s, { year, propertyId = 'all' }) {
+export function rentPotential(s, { year, propertyId = 'all', now = today() }) {
   const properties = s.properties.filter(p => p.use === 'rental' && (propertyId === 'all' || p.id === propertyId)).map(p => {
-    // Full occupancy keeps a monthly rate during vacancy; imported receipts do
-    // not establish a rate. Partial-month overrides describe actual obligations.
+    // Known contracts supply full monthly rates. Archive-only contracts have no
+    // known charges: estimate their rates from rent received for each period,
+    // with explicit full-month rates for confirmed partial-month receipts.
     const contracts = s.contracts.filter(c => c.propertyId === p.id && !c.historyOnly).sort((a, b) => a.start.localeCompare(b.start));
+    const archive = s.contracts.filter(c => c.propertyId === p.id && c.historyOnly);
+    const timeline = contracts.map(c => ({ period: monthOf(c.start), rate: c.rent, source: 'contract', contractId: c.id }));
+    for (const c of archive) {
+      const received = new Map();
+      for (const payment of s.payments.filter(x => x.propertyId === p.id && x.contractId === c.id && x.kind === 'rent' && x.date <= now && x.amount > 0)) {
+        received.set(payment.period, (received.get(payment.period) || 0) + cents(payment.amount));
+      }
+      for (const period of new Set([...received.keys(), ...Object.keys(c.potentialRates || {})])) {
+        const confirmed = Object.hasOwn(c.potentialRates || {}, period);
+        timeline.push({ period, rate: confirmed ? c.potentialRates[period] : received.get(period) / 100, source: confirmed ? 'confirmed' : 'receipts', contractId: c.id });
+      }
+    }
+    timeline.sort((a, b) => a.period.localeCompare(b.period));
     const months = monthRange(`${year}-01`, `${year}-12`).map(period => {
       const end = dueDate(period, 31);
-      const c = contracts.filter(c => c.start <= end).at(-1) || contracts[0];
-      return { period, rate: c?.rent ?? null, assumed: !!c && (c.start > end || !!c.end && c.end < period + '-01') };
+      const c = contracts.filter(c => c.start <= end && (!c.end || c.end >= period + '-01')).at(-1);
+      if (c) return { period, rate: c.rent, source: 'contract', contractId: c.id, assumed: false };
+      const nearest = timeline.filter(x => x.period <= period).at(-1) || timeline[0];
+      return { period, rate: nearest?.rate ?? null, source: nearest?.source || 'unknown', contractId: nearest?.contractId, assumed: !!nearest && nearest.period !== period };
     });
     const rent = months.some(m => m.rate === null) ? null : months.reduce((sum, m) => sum + cents(m.rate), 0) / 100;
     return { propertyId: p.id, rent, months };
@@ -140,6 +157,8 @@ export function validateState(s) {
   for (const c of s.contracts) {
     if (!isDate(c.start) || (c.end && (!isDate(c.end) || c.end < c.start)) || !Number.isFinite(c.rent) || c.rent < 0 || !Number.isInteger(c.dueDay) || c.dueDay < 1 || c.dueDay > 31) throw Error('Проверьте даты, ставку и день оплаты договора.');
     if (c.firstDueDate && (!isDate(c.firstDueDate) || monthOf(c.firstDueDate) !== monthOf(c.start))) throw Error('Дата первого платежа должна быть в месяце начала договора.');
+    if (c.dueDayFromStart !== undefined && typeof c.dueDayFromStart !== 'boolean') throw Error('Проверьте привязку дня оплаты к дате договора.');
+    if (c.potentialRates && (typeof c.potentialRates !== 'object' || Array.isArray(c.potentialRates) || Object.entries(c.potentialRates).some(([m, v]) => !/^\d{4}-(0[1-9]|1[0-2])$/.test(m) || !Number.isFinite(v) || v < 0 || v > 1e10))) throw Error('Проверьте месячные ставки для расчёта потенциальной аренды.');
     if (c.overrides && Object.entries(c.overrides).some(([m, v]) => !/^\d{4}-(0[1-9]|1[0-2])$/.test(m) || !Number.isFinite(v) || v < 0)) throw Error('Неверная сумма начисления.');
     for (const other of s.contracts.filter(x => x.propertyId === c.propertyId && x.id !== c.id)) if (c.start <= (other.end || '9999-12-31') && other.start <= (c.end || '9999-12-31')) throw Error('Периоды договоров одной квартиры пересекаются. Завершите предыдущие условия.');
   }

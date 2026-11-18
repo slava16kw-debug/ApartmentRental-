@@ -129,7 +129,24 @@ test('annual summary compares received rent with full occupancy and scopes expen
   s.contracts[1].rent = 0;
   inspect('p741', { 'rent-potential': '0₽', 'rent-percent': '—' });
   s.contracts[1].historyOnly = true;
-  inspect('p741', { 'rent-potential': '—', 'rent-percent': '—' });
+  inspect('p741', { 'rent-potential': '1200₽', 'rent-percent': '8,3%' });
   s.payments = [];
   inspect('p231', { 'rent-percent': '0%' });
+});
+
+test('annual overview highlights linked contract days and labels apartment expenses', () => {
+  const s = initialState({}, '2026-01-01');
+  s.contracts[0].start = '2024-10-06'; s.contracts[0].dueDayFromStart = true;
+  s.contracts[1].start = '2026-11-16'; s.contracts[1].dueDay = 21; s.contracts[1].dueDayFromStart = true;
+  const before = JSON.stringify(s), dom = new JSDOM(renderWorkbook(s, { year: '2026', month: 'all', propertyId: 'all' }));
+  try {
+    const d = dom.window.document;
+    for (const table of ['.sheet-readings-table', '.sheet-usage-table']) {
+      assert.equal(d.querySelector(`${table} .sheet-property-head[data-property="p231"] .sheet-rent-due strong`).textContent, '6-го числа');
+      assert.equal(d.querySelector(`${table} .sheet-property-head[data-property="p741"] .sheet-rent-due strong`).textContent, '16-го числа');
+    }
+    assert.ok([...d.querySelectorAll('.sheet-totals-table th')].some(x => x.textContent === 'Расходы по квартирам'));
+    assert.equal(d.querySelector('.sheet-totals-table').textContent.includes('Оплачено по аренде'), false);
+    assert.equal(JSON.stringify(s), before);
+  } finally { dom.window.close(); }
 });

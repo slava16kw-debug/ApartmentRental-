@@ -1,0 +1,11 @@
+import { build } from 'esbuild';
+import { readFile, writeFile, mkdir, rm, copyFile } from 'node:fs/promises';
+process.chdir(new URL('../', import.meta.url).pathname);
+await rm('vercel-dist', { recursive: true, force: true });
+await mkdir('vercel-dist/assets', { recursive: true });
+await build({ entryPoints: ['src/app.js'], outfile: 'vercel-dist/assets/app.js', bundle: true, minify: true, format: 'esm', target: 'es2022', platform: 'browser', legalComments: 'none' });
+await copyFile('src/index.html', 'vercel-dist/index.html');
+await copyFile('src/style.css', 'vercel-dist/assets/style.css');
+await writeFile('vercel-dist/assets/workbook.css', (await readFile('src/workbook.css', 'utf8')) + '\n' + (await readFile('src/theme.css', 'utf8')));
+await writeFile('vercel-dist/favicon.svg', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="11" fill="#f49a46"/><path d="m9 19 11-9 11 9v12h-8v-8h-6v8H9Z" fill="none" stroke="#fff" stroke-width="2"/></svg>');
+console.log('Built Vercel frontend. Private portfolio is served by api/portfolio.js.');

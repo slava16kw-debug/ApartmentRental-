@@ -16,6 +16,7 @@ const btn = (label, action, name = 'plus', cls = '') => `<button type="button" c
 const statusBadge = status => ({ paid: '<span class="badge green">Получено</span>', late: '<span class="badge red">Просрочено</span>', partial: '<span class="badge amber">Частично</span>', pending: '<span class="badge grey">Ожидается</span>', recorded: '<span class="badge grey">Из Excel</span>' })[status] || '';
 const paymentDate = p => p.datePrecision === 'month' ? `${shortPeriod(monthOf(p.date))}<span class="muted">Точный день не указан</span>` : shortDate(p.date);
 const resourceIcon = t => ({ water: 'drop', gas: 'flame', power: 'bolt' })[t];
+let authProvider = 'chatgpt';
 let state, realState, revision = 0, busy = false, demo = false, currentView = 'overview', meterTab = 'meters', paymentTab = 'charges', sidebarOpen = false;
 const linkedYear = new URLSearchParams(location.search).get('year');
 const hasLinkedYear = /^20\d{2}$/.test(linkedYear || '');
@@ -37,7 +38,7 @@ async function boot() {
     const r = await fetch('/api/portfolio', { cache: 'no-store' });
     const data = await r.json();
     if (!r.ok) throw Error(data.error || 'Не удалось загрузить данные.');
-    state = validateState(data.state); revision = data.revision; render();
+    state = validateState(data.state); revision = data.revision; authProvider = data.authProvider || 'chatgpt'; render();
   } catch (e) {
     app.innerHTML = `<div class="loading"><span class="loading-mark">⌂</span><h2>Мои квартиры</h2><p>${esc(e.message)}</p>${btn('Попробовать снова', 'retry', 'refresh', 'primary')}</div>`;
   }
@@ -70,7 +71,7 @@ function render() {
       <a class="brand" href="#overview" data-view="overview"><span class="brand-mark">${icon('home')}</span><span><span class="brand-name">Мои квартиры</span><span class="brand-sub" style="display:block">Учёт аренды и счётчиков</span></span></a>
       <div class="sidebar-caption">УПРАВЛЕНИЕ</div>
       <nav class="nav" aria-label="Основная навигация">${nav.map(([id, ic, name]) => `<button class="${currentView === id ? 'active' : ''}" data-view="${id}">${icon(ic)}${name}${id === 'properties' ? `<span class="count">${state.properties.length}</span>` : ''}</button>`).join('')}</nav>
-      <div class="side-bottom"><div class="side-note">${icon('leaf')}<strong>Всё под контролем</strong>Показания, аренда и расходы — в одном месте.</div><div class="account"><span class="avatar">МК</span><div><strong>Личный кабинет</strong><p>Приватное пространство</p></div><a href="/signout-with-chatgpt?return_to=/" target="_top" title="Выйти" style="margin-left:auto">${icon('exit')}</a></div></div>
+      <div class="side-bottom"><div class="side-note">${icon('leaf')}<strong>Всё под контролем</strong>Показания, аренда и расходы — в одном месте.</div><div class="account"><span class="avatar">МК</span><div><strong>Личный кабинет</strong><p>Приватное пространство</p></div><a href="${authProvider === 'vercel' ? 'https://vercel.com/account' : '/signout-with-chatgpt?return_to=/'}" target="_top" title="${authProvider === 'vercel' ? 'Аккаунт Vercel' : 'Выйти'}" style="margin-left:auto">${icon(authProvider === 'vercel' ? 'user' : 'exit')}</a></div></div>
     </aside>
     <main class="main">
       <div class="topbar"><div class="mobile-top-left"><button class="mobile-menu" data-action="menu" aria-label="Открыть меню" aria-controls="primary-sidebar" aria-expanded="${sidebarOpen}">${icon('menu')}</button><span class="mobile-brand">${icon('home')}Мои квартиры</span><div class="breadcrumb">${icon('home')}<span>Мои квартиры</span><span>/</span><strong>${esc(title)}</strong></div></div><div class="top-actions"><button class="text-button" data-action="demo">${icon(demo ? 'exit' : 'chart')}<span>${demo ? 'Выйти из примера' : 'Посмотреть пример'}</span></button><span class="sync"><i class="dot"></i>${demo ? 'Демо' : 'В облаке'}</span></div></div>

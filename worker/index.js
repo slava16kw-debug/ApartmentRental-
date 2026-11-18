@@ -3,6 +3,7 @@ import client from 'app:client';
 import css from 'app:css';
 import workbookCss from 'app:workbook-css';
 import { initialState, validateState } from '../src/domain.js';
+import { handlePortfolio } from '../server/portfolio-api.js';
 
 const SECURITY = { 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'same-origin', 'Cache-Control': 'no-store' };
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...SECURITY, 'Content-Type': 'application/json; charset=utf-8' } });
@@ -13,6 +14,8 @@ export default {
     // Sites authentication. It must not be deployed to a public Worker endpoint.
     if (env.PRIVATE_SITE !== 'true') return json({ error: 'Не настроен приватный доступ приложения.' }, 503);
     if (url.pathname.startsWith('/api/')) {
+      if (url.pathname === '/api/portfolio' && env.BLOB_READ_WRITE_TOKEN) return handlePortfolio(request, { token: env.BLOB_READ_WRITE_TOKEN, writeLocked: env.RENTAL_DATA_MIGRATION_LOCK === 'true' });
+      if (url.pathname === '/api/portfolio' && request.method === 'PUT' && env.RENTAL_DATA_MIGRATION_LOCK === 'true') return json({ error: 'Обновляем хранилище. Сохраните запись ещё раз через минуту.' }, 503);
       if (!env.DB) return json({ error: 'Хранилище ещё подключается. Повторите попытку через минуту.' }, 503);
       if (url.pathname === '/api/health') return json({ ok: true, storage: 'D1', version: '0.1.0' });
       if (url.pathname !== '/api/portfolio') return json({ error: 'Раздел не найден.' }, 404);

@@ -1,17 +1,25 @@
-import { get, put, BlobPreconditionFailedError } from '@vercel/blob';
+import { get, head, put, BlobPreconditionFailedError } from '@vercel/blob';
 import { validateState } from '../src/domain.js';
 
 export const PORTFOLIO_PATH = 'rental/portfolio.json';
-export function createBlobStore(token, client = { get, put }) {
+export function createBlobStore(token, client = { get, head, put }) {
   if (!token) throw Error('Private storage is not configured');
   return {
     async read() {
-      const result = await client.get(PORTFOLIO_PATH, { access: 'private', token, useCache: false });
-      if (!result || result.statusCode !== 200) throw Error('Private portfolio has not been initialized');
-      const snapshot = await new Response(result.stream).json();
-      if (!Number.isInteger(snapshot.revision) || snapshot.revision < 0 || !result.blob.etag) throw Error('Invalid private portfolio snapshot');
-      validateState(snapshot.state);
-      return { snapshot, etag: result.blob.etag };
+      // CDN compression can weaken the download ETag. Obtain the strong
+      // storage ETag from metadata and ensure the object stayed stable while read.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const before = await client.head(PORTFOLIO_PATH, { token });
+        const result = await client.get(PORTFOLIO_PATH, { access: 'private', token, useCache: false, headers: { 'Accept-Encoding': 'identity' } });
+        if (!result || result.statusCode !== 200) throw Error('Private portfolio has not been initialized');
+        const snapshot = await new Response(result.stream).json();
+        const after = await client.head(PORTFOLIO_PATH, { token });
+        if (before.etag !== after.etag) continue;
+        if (!Number.isInteger(snapshot.revision) || snapshot.revision < 0 || !after.etag) throw Error('Invalid private portfolio snapshot');
+        validateState(snapshot.state);
+        return { snapshot, etag: after.etag };
+      }
+      throw Error('Private portfolio changed during read');
     },
     async save(revision, state) {
       validateState(state);

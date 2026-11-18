@@ -9,6 +9,7 @@ import { createHandler, protectedDeploymentHost } from '../api/portfolio.js';
 function setup() {
   let snapshot = { revision: 7, state: initialState({}, '2026-01-01'), updatedAt: '2026-01-01T00:00:00Z' }, etag = 'one', writes = 0;
   const client = {
+    async head() { return { etag }; },
     async get(path, options) { assert.equal(options.access, 'private'); assert.equal(options.useCache, false); return { statusCode: 200, blob: { etag }, stream: new Response(JSON.stringify(snapshot)).body }; },
     async put(path, body, options) {
       assert.equal(options.access, 'private'); assert.ok(options.ifMatch); assert.equal(options.addRandomSuffix, false);
@@ -25,6 +26,17 @@ test('shared private storage atomically rejects concurrent and stale writes', as
   assert.equal(results.filter(Boolean).length, 1); assert.equal(ctx.writes(), 1);
   assert.equal(ctx.snapshot().revision, 8);
   assert.equal(await ctx.store.save(7, second), null); assert.equal(ctx.writes(), 1);
+});
+test('private storage uses a strong metadata ETag when a CDN weakens the download ETag', async () => {
+  const snapshot = { revision: 2, state: initialState({}, '2026-01-01') };
+  let written = false;
+  const client = {
+    async head() { return { etag: '"strong-storage-etag"' }; },
+    async get() { return { statusCode: 200, blob: { etag: 'W/"strong-storage-etag"' }, stream: new Response(JSON.stringify(snapshot)).body }; },
+    async put(path, body, options) { assert.equal(options.ifMatch, '"strong-storage-etag"'); written = true; },
+  };
+  assert.equal((await createBlobStore('test-token', client).save(2, snapshot.state)).revision, 3);
+  assert.ok(written);
 });
 test('private API preserves validation, month data, write locks and cross-origin protection', async () => {
   const ctx = setup(), opts = { store: ctx.store, authProvider: 'vercel' };

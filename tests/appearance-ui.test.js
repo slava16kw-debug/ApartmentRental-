@@ -33,7 +33,9 @@ test('all three themes persist across navigation and reload without writing fina
   const { dom, w, requests } = await page();
   try {
     const d = w.document;
-    assert.equal(d.documentElement.dataset.theme, 'light');
+    assert.equal(d.documentElement.dataset.theme, 'dark');
+    assert.equal(d.documentElement.style.colorScheme, 'dark');
+    assert.equal(d.querySelector('meta[name="theme-color"]').content, '#10141b');
     const choose = id => {
       const select = d.querySelector('[data-theme-select]');
       select.value = id; select.dispatchEvent(new w.Event('change', { bubbles: true }));
@@ -73,7 +75,7 @@ test('invalid preferences and blocked browser storage do not prevent loading or 
   for (const options of [{ saved: 'unknown' }, { storageBlocked: true }]) {
     const { dom, w } = await page(options.saved, options);
     try {
-      assert.equal(w.document.documentElement.dataset.theme, 'light');
+      assert.equal(w.document.documentElement.dataset.theme, 'dark');
       const select = w.document.querySelector('[data-theme-select]');
       select.value = 'dark'; select.dispatchEvent(new w.Event('change', { bubbles: true }));
       assert.equal(w.document.documentElement.dataset.theme, 'dark');

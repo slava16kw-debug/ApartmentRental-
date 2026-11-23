@@ -1,4 +1,5 @@
 export const THEME_KEY = 'moi-kvartiry:theme:v1';
+export const DEFAULT_THEME = 'dark';
 export const THEMES = [
   { id: 'white', label: 'Белая', color: '#ffffff' },
   { id: 'light', label: 'Светлая', color: '#eef0f3' },
@@ -6,11 +7,11 @@ export const THEMES = [
 ];
 
 export function currentTheme() {
-  return THEMES.some(t => t.id === document.documentElement.dataset.theme) ? document.documentElement.dataset.theme : 'light';
+  return THEMES.some(t => t.id === document.documentElement.dataset.theme) ? document.documentElement.dataset.theme : DEFAULT_THEME;
 }
 
 export function setTheme(id, persist = true) {
-  const theme = THEMES.find(t => t.id === id) || THEMES[1];
+  const theme = THEMES.find(t => t.id === id) || THEMES.find(t => t.id === DEFAULT_THEME);
   document.documentElement.dataset.theme = theme.id;
   document.documentElement.style.colorScheme = theme.id === 'dark' ? 'dark' : 'light';
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme.color);

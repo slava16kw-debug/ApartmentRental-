@@ -162,20 +162,27 @@ test('occupied plan sits next to full potential and compares annual receipts wit
     try {
       const d = dom.window.document, potentialCard = d.querySelector('[data-summary="rent-potential"]').parentElement;
       assert.ok(potentialCard.nextElementSibling.classList.contains('summary-occupancy'));
-      assert.equal(d.querySelectorAll('.sheet-summary > .sheet-summary-pair').length, 6);
+      assert.equal(d.querySelectorAll('.sheet-summary > .sheet-summary-pair').length, 3);
       for (const [key, value] of Object.entries(values)) assert.equal(d.querySelector(`[data-summary="${key}"]`).textContent.replace(/\s/g, ''), value, key);
       const ratio = d.querySelector('[data-summary="occupied-percent"]');
       assert.ok(ratio.closest('.summary-occupancy'));
-      const track = d.querySelector('.occupancy-completion-track i');
+      assert.ok(d.querySelector('[data-summary="rent-percent"]').closest('.summary-potential'));
+      assert.ok(d.querySelector('[data-summary="profit"]').closest('.summary-received'));
+      assert.ok(d.querySelector('[data-summary="expenses"]').closest('.summary-received'));
+      assert.ok(d.querySelector('[data-summary="profit-percent"]').closest('.summary-received'));
+      assert.equal(d.querySelector('.sheet-summary > .summary-ratio'), null);
+      const track = d.querySelector('.summary-occupancy .occupancy-completion-track i');
       assert.equal(track?.style.width ?? null, progress);
     } finally { dom.window.close(); }
   };
-  inspect('all', { 'occupied-plan': '1500₽', 'occupied-percent': '60%', 'occupied-profit': '1450₽', 'rent-potential': '1800₽', 'rent-percent': '50%' }, '60%');
-  inspect('p231', { 'occupied-plan': '900₽', 'occupied-percent': '88,9%', 'occupied-profit': '850₽' }, '88.88888888888889%');
-  inspect('p17', { 'occupied-plan': '0₽', 'occupied-percent': '—', 'occupied-profit': '0₽' }, null);
+  inspect('all', { 'occupied-plan': '1500₽', 'occupied-percent': '60%', 'occupied-profit': '1450₽', 'rent-potential': '1800₽', 'rent-percent': '50%', 'potential-profit': '1750₽', 'profit-percent': '58,6%' }, '60%');
+  inspect('p231', { 'occupied-plan': '900₽', 'occupied-percent': '88,9%', 'occupied-profit': '850₽', 'profit-percent': '88,2%' }, '88.88888888888889%');
+  inspect('p17', { 'occupied-plan': '0₽', 'occupied-percent': '—', 'occupied-profit': '0₽', 'profit-percent': '—' }, null);
   assert.equal(JSON.stringify(s), before);
   s.payments[0].amount = 1800;
-  inspect('all', { 'occupied-plan': '1500₽', 'occupied-percent': '126,7%' }, '100%');
+  inspect('all', { 'occupied-plan': '1500₽', 'occupied-percent': '126,7%', 'profit-percent': '127,6%' }, '100%');
   s.payments = [];
-  inspect('all', { 'occupied-percent': '0%' }, '0%');
+  inspect('all', { 'occupied-percent': '0%', 'profit-percent': '-3,4%' }, '0%');
+  s.expenses = []; s.contracts.forEach(c => { c.rent = 0; });
+  inspect('all', { 'occupied-plan': '0₽', 'occupied-percent': '—', 'profit-percent': '—' }, null);
 });

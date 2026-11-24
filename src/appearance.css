@@ -227,7 +227,22 @@ html[data-theme] #toast { background: var(--ink); color: var(--surface); }
 .theme-picker select { min-height: 32px; padding: 5px 0; max-width: 105px; border: 0; background: transparent; color: var(--ink); cursor: pointer; font: inherit; }
 .theme-picker-swatch { width: 12px; height: 12px; flex-shrink: 0; border: 1px solid var(--muted); border-radius: 50%; background: linear-gradient(90deg, var(--surface) 50%, var(--ink) 50%); }
 .appearance-settings .theme-picker { min-width: 190px; justify-content: space-between; }
-.sheet-app .sheet-summary .summary-occupancy { grid-template-rows: auto auto auto 1fr; }
+.sheet-app .sheet-summary.sheet-summary-financial { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.sheet-app .sheet-summary-financial > .sheet-summary-pair { grid-template-rows: auto auto auto 1fr; min-height: 250px; padding: 20px; gap: 11px; border-radius: 13px; }
+.sheet-app .sheet-summary-financial > .sheet-summary-pair > span { font-size: 14px; }
+.sheet-app .sheet-summary-financial > .sheet-summary-pair > strong { font-size: 30px; }
+.sheet-app .sheet-summary-financial .summary-hint { font-size: 12px; }
+.sheet-summary-financial .occupancy-completion { align-self: stretch; margin-top: 4px; padding-top: 14px; }
+.sheet-summary-financial .occupancy-completion-label { font-size: 14px; }
+.sheet-summary-financial .occupancy-completion-label > span { flex: 1; min-width: 0; }
+.sheet-summary-financial .occupancy-completion-label strong { font-size: 24px; }
+.sheet-summary-financial .occupancy-profit-note { font-size: 12px; }
+.summary-received-details { display: grid; align-content: start; gap: 9px; }
+.summary-actual-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 5px 10px; color: var(--muted); font-size: 14px; }
+.summary-actual-row strong { color: var(--ink-secondary); font-size: 18px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.summary-actual-profit { color: var(--ink); }
+.summary-actual-profit strong { color: var(--ink); font-size: 24px; font-weight: 650; }
+.summary-profit-completion { margin-top: 5px; }
 .occupancy-completion { align-self: end; min-width: 0; margin-top: 2px; padding-top: 10px; border-top: 1px solid var(--border); }
 .occupancy-completion-label { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 5px 10px; font-size: 11px; color: var(--ink-secondary); }
 .occupancy-completion-label strong { color: var(--blue-ink); font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.2; }
@@ -237,6 +252,8 @@ html[data-theme] #toast { background: var(--ink); color: var(--surface); }
 .occupancy-profit-note b { color: var(--ink-secondary); font-weight: 600; white-space: nowrap; }
 .occupancy-plan-note { margin: -12px 0 23px; color: var(--muted); font-size: 10px; line-height: 1.6; }
 @media (max-width: 740px) {
+  .sheet-app .sheet-summary.sheet-summary-financial { grid-template-columns: 1fr; gap: 12px; }
+  .sheet-app .sheet-summary-financial > .sheet-summary-pair { min-height: 0; padding: 20px; }
   .theme-picker { padding: 0 7px; gap: 5px; }
   .top-actions .theme-picker-label { display: none; }
   .top-actions .theme-picker select { max-width: 82px; font-size: 10px; }

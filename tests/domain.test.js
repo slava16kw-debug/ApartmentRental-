@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { initialState, validateState, finances, rentPotential, occupiedRentPlan, charges, usage, intervals, dueDate, demoState, contractDueDay } from '../src/domain.js';
+import { initialState, validateState, finances, rentPotential, occupiedRentPlan, rentVacancyLoss, charges, usage, intervals, dueDate, demoState, contractDueDay } from '../src/domain.js';
 const now = '2026-11-15';
 const state = () => initialState({}, now);
 const payment = (id, propertyId, amount, kind = 'rent', date = '2026-11-06', period = '2026-11') => ({ id, propertyId, contractId: 'c-' + propertyId, kind, date, period, amount });
@@ -211,6 +211,33 @@ test('occupied plan uses archive receipts once, preserves partial archive paymen
   assert.equal(result.properties[0].months[6].amount, 0);
   assert.equal(result.properties[0].months[11].amount, 0);
   assert.equal(JSON.stringify(s), before);
+});
+
+test('vacancy loss lists empty and partial months without treating unpaid rent as vacancy', () => {
+  const s = initialState({}, '2026-01-01');
+  s.contracts[0].rent = 100; s.contracts[0].end = '2026-08-31'; s.contracts[0].overrides = { '2026-01': 150 };
+  s.contracts[1].rent = 50;
+  s.contracts.push({ id: 'new', propertyId: 'p231', start: '2026-11-16', end: '', rent: 200, dueDay: 16, overrides: { '2026-11': 50 } });
+  s.payments.push(payment('partial-paid', 'p231', 20, 'rent', '2026-01-06', '2026-01'));
+  validateState(s);
+  const before = JSON.stringify(s), actual = finances(s, { year: 2026, now });
+  const loss = rentVacancyLoss(s, { year: 2026, now });
+  assert.equal(loss.rent, 350);
+  assert.deepEqual(loss.months.filter(m => m.amount > 0).map(m => [m.period, m.amount]), [['2026-09', 100], ['2026-10', 100], ['2026-11', 150]]);
+  assert.equal(loss.months[0].amount, 0, 'An unpaid or extra contractual charge cannot create negative vacancy');
+  assert.equal(loss.months[1].amount, 0, 'A known occupied month remains occupied when no rent was received');
+  assert.equal(rentVacancyLoss(s, { year: 2026, propertyId: 'p741', now }).rent, 0);
+  assert.equal(rentVacancyLoss(s, { year: 2026, propertyId: 'p17', now }).rent, 0);
+  assert.deepEqual(finances(s, { year: 2026, now }), actual);
+  assert.equal(JSON.stringify(s), before);
+});
+
+test('vacancy totals remain unknown before the first lease or when monthly rates are missing', () => {
+  const s = initialState({}, '2026-01-01');
+  const past = rentVacancyLoss(s, { year: 2025, now });
+  assert.equal(past.rent, null); assert.ok(past.months.every(m => m.amount === null));
+  s.contracts = s.contracts.filter(c => c.propertyId !== 'p741');
+  assert.equal(rentVacancyLoss(s, { year: 2026, now }).rent, null);
 });
 
 test('zero rent records are allowed with or without a tenant and preserve contractual debt', () => {

@@ -124,6 +124,22 @@ export function occupiedRentPlan(s, { year, propertyId = 'all', now = today() })
   });
   return { properties, rent: properties.reduce((sum, p) => sum + cents(p.rent), 0) / 100 };
 }
+export function rentVacancyLoss(s, { year, propertyId = 'all', now = today() }) {
+  const potential = rentPotential(s, { year, propertyId, now });
+  const plan = occupiedRentPlan(s, { year, propertyId, now });
+  const months = monthRange(`${year}-01`, `${year}-12`).map((period, i) => {
+    const properties = potential.properties.map(p => {
+      const covered = s.contracts.some(c => c.propertyId === p.propertyId && c.start <= dueDate(period, 31)) || s.payments.some(x => x.propertyId === p.propertyId && x.kind === 'rent' && x.period === period && x.date <= now);
+      const rate = p.months[i].rate;
+      const planned = plan.properties.find(x => x.propertyId === p.propertyId).months[i].amount;
+      // Missing years before the first known lease are not recorded as vacancy.
+      // Unpaid rent under a known lease remains in the plan and is not a loss.
+      return { propertyId: p.propertyId, amount: !covered || rate === null ? null : Math.max(0, cents(rate) - cents(planned)) / 100 };
+    });
+    return { period, amount: properties.some(p => p.amount === null) ? null : properties.reduce((sum, p) => sum + cents(p.amount), 0) / 100, properties };
+  });
+  return { rent: months.some(m => m.amount === null) ? null : months.reduce((sum, m) => sum + cents(m.amount), 0) / 100, months };
+}
 export function intervals(s, meterId) {
   const meter = s.meters.find(m => m.id === meterId);
   const readings = s.readings.filter(r => r.meterId === meterId).sort((a, b) => a.date.localeCompare(b.date));

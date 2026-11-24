@@ -169,20 +169,54 @@ test('occupied plan sits next to full potential and compares annual receipts wit
       assert.ok(d.querySelector('[data-summary="rent-percent"]').closest('.summary-potential'));
       assert.ok(d.querySelector('[data-summary="profit"]').closest('.summary-received'));
       assert.ok(d.querySelector('[data-summary="expenses"]').closest('.summary-received'));
-      assert.ok(d.querySelector('[data-summary="profit-percent"]').closest('.summary-received'));
+      assert.ok(d.querySelector('[data-summary="expense-percent"]').closest('.summary-received'));
       assert.equal(d.querySelector('.sheet-summary > .summary-ratio'), null);
+      const actualRows = d.querySelector('.summary-received-details').children;
+      assert.ok(actualRows[0].classList.contains('summary-actual-profit'));
+      assert.ok(actualRows[1].classList.contains('summary-actual-expenses'));
+      assert.equal(d.querySelector('[data-summary="profit"]').classList.contains('sheet-profit-value'), false);
+      assert.equal(d.querySelector('[data-summary="profit-percent"]'), null);
       const track = d.querySelector('.summary-occupancy .occupancy-completion-track i');
       assert.equal(track?.style.width ?? null, progress);
     } finally { dom.window.close(); }
   };
-  inspect('all', { 'occupied-plan': '1500₽', 'occupied-percent': '60%', 'occupied-profit': '1450₽', 'rent-potential': '1800₽', 'rent-percent': '50%', 'potential-profit': '1750₽', 'profit-percent': '58,6%' }, '60%');
-  inspect('p231', { 'occupied-plan': '900₽', 'occupied-percent': '88,9%', 'occupied-profit': '850₽', 'profit-percent': '88,2%' }, '88.88888888888889%');
-  inspect('p17', { 'occupied-plan': '0₽', 'occupied-percent': '—', 'occupied-profit': '0₽', 'profit-percent': '—' }, null);
+  inspect('all', { 'occupied-plan': '1500₽', 'occupied-percent': '60%', 'occupied-profit': '1450₽', 'rent-potential': '1800₽', 'rent-percent': '50%', 'potential-profit': '1750₽', 'expense-percent': '5,6%', 'vacancy-total': '300₽' }, '60%');
+  inspect('p231', { 'occupied-plan': '900₽', 'occupied-percent': '88,9%', 'occupied-profit': '850₽', 'expense-percent': '6,3%' }, '88.88888888888889%');
+  inspect('p17', { 'occupied-plan': '0₽', 'occupied-percent': '—', 'occupied-profit': '0₽', 'expense-percent': '—' }, null);
   assert.equal(JSON.stringify(s), before);
   s.payments[0].amount = 1800;
-  inspect('all', { 'occupied-plan': '1500₽', 'occupied-percent': '126,7%', 'profit-percent': '127,6%' }, '100%');
+  inspect('all', { 'occupied-plan': '1500₽', 'occupied-percent': '126,7%', 'expense-percent': '2,6%' }, '100%');
   s.payments = [];
-  inspect('all', { 'occupied-percent': '0%', 'profit-percent': '-3,4%' }, '0%');
-  s.expenses = []; s.contracts.forEach(c => { c.rent = 0; });
-  inspect('all', { 'occupied-plan': '0₽', 'occupied-percent': '—', 'profit-percent': '—' }, null);
+  inspect('all', { 'occupied-percent': '0%', 'expense-percent': '—' }, '0%');
+  s.payments.push({ id: 'small-rent', propertyId: 'p231', contractId: 'c-p231', kind: 'rent', period: '2026-01', date: '2026-01-06', amount: 10 });
+  inspect('all', { 'expense-percent': '500%' }, '0.6666666666666667%');
+  s.expenses = [];
+  inspect('all', { 'expense-percent': '0%' }, '0.6666666666666667%');
+  s.payments = [];
+  s.contracts.forEach(c => { c.rent = 0; });
+  inspect('all', { 'occupied-plan': '0₽', 'occupied-percent': '—', 'expense-percent': '—' }, null);
+});
+
+test('vacancy details stay inside the occupancy card and match the selected apartment', () => {
+  const s = initialState({}, '2026-01-01');
+  s.contracts[0].rent = 100; s.contracts[0].end = '2026-09-30'; s.contracts[1].rent = 50;
+  const before = JSON.stringify(s);
+  const all = new JSDOM(renderWorkbook(s, { year: '2026', month: 'all', propertyId: 'all' }));
+  try {
+    const d = all.window.document, card = d.querySelector('.summary-occupancy');
+    assert.equal(d.querySelectorAll('.sheet-summary > .sheet-summary-pair').length, 3);
+    assert.deepEqual([...card.querySelectorAll('[data-vacancy-period]')].map(x => x.dataset.vacancyPeriod), ['2026-10', '2026-11', '2026-12']);
+    assert.equal(card.querySelector('[data-summary="vacancy-total"]').textContent.replace(/\s/g, ''), '300₽');
+    assert.ok(card.querySelector('[data-vacancy-period="2026-10"]').textContent.includes('Октябрь'));
+    assert.equal(d.querySelectorAll('.summary-vacancy').length, 1);
+    assert.equal(JSON.stringify(s), before);
+  } finally { all.window.close(); }
+  const occupied = new JSDOM(renderWorkbook(s, { year: '2026', month: 'all', propertyId: 'p741' }));
+  assert.equal(occupied.window.document.querySelectorAll('[data-vacancy-period]').length, 0);
+  assert.equal(occupied.window.document.querySelector('[data-summary="vacancy-total"]').textContent.replace(/\s/g, ''), '0₽');
+  occupied.window.close();
+  const unknown = new JSDOM(renderWorkbook(s, { year: '2025', month: 'all', propertyId: 'all' }));
+  assert.equal(unknown.window.document.querySelectorAll('[data-vacancy-period]').length, 0);
+  assert.equal(unknown.window.document.querySelector('[data-summary="vacancy-total"]').textContent, '—');
+  unknown.window.close();
 });

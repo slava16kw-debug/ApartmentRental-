@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { initialState, validateState, finances, rentPotential, charges, usage, intervals, dueDate, demoState, contractDueDay } from '../src/domain.js';
+import { initialState, validateState, finances, rentPotential, occupiedRentPlan, charges, usage, intervals, dueDate, demoState, contractDueDay } from '../src/domain.js';
 const now = '2026-11-15';
 const state = () => initialState({}, now);
 const payment = (id, propertyId, amount, kind = 'rent', date = '2026-11-06', period = '2026-11') => ({ id, propertyId, contractId: 'c-' + propertyId, kind, date, period, amount });
@@ -171,6 +171,46 @@ test('contract-linked payment day follows its start date and still clips short m
   assert.equal(charges(s, '2026-02', now).find(x => x.contractId === c.id && x.period === '2026-02').due, '2026-02-28');
   assert.equal(s.payments.length, 0);
   c.dueDayFromStart = 'yes'; assert.throws(() => validateState(s));
+});
+
+test('occupied rent plan respects vacancy, rate changes and partial months without following receipt amounts', () => {
+  const s = initialState({}, '2026-01-01');
+  s.contracts[0].rent = 100; s.contracts[0].end = '2026-08-31';
+  s.contracts[1].rent = 50;
+  s.contracts.push({ id: 'new-terms', propertyId: 'p231', start: '2026-11-16', end: '', rent: 200, dueDay: 16, overrides: { '2026-11': 50 } });
+  s.payments.push(payment('partial', 'p231', 20, 'rent', '2026-01-06', '2026-01'), payment('overpaid', 'p231', 400, 'rent', '2026-02-06', '2026-02'), payment('deposit', 'p231', 9000, 'deposit_in', '2026-01-06'));
+  validateState(s);
+  const before = JSON.stringify(s), f = finances(s, { year: 2026, now }), cs = charges(s, '2026-12', now);
+  const result = occupiedRentPlan(s, { year: 2026, now });
+  assert.equal(result.rent, 1650);
+  const apartment = result.properties.find(p => p.propertyId === 'p231');
+  assert.equal(apartment.rent, 1050);
+  assert.equal(apartment.months[0].amount, 100, 'Missed or partial payments do not lower a contractual plan');
+  assert.equal(apartment.months[1].amount, 100, 'Advance and excess payments do not raise a contractual plan');
+  assert.equal(apartment.months[8].amount, 0); assert.equal(apartment.months[9].amount, 0);
+  assert.equal(apartment.months[10].amount, 50); assert.equal(apartment.months[11].amount, 200);
+  assert.equal(occupiedRentPlan(s, { year: 2026, propertyId: 'p741', now }).rent, 600);
+  assert.equal(occupiedRentPlan(s, { year: 2026, propertyId: 'p17', now }).rent, 0);
+  assert.equal(occupiedRentPlan(s, { year: 2025, now }).rent, 0, 'Rates are not carried into months without a contract');
+  assert.equal(occupiedRentPlan(s, { year: 2027, now }).rent, 3000);
+  assert.deepEqual(finances(s, { year: 2026, now }), f); assert.deepEqual(charges(s, '2026-12', now), cs);
+  assert.equal(JSON.stringify(s), before);
+});
+
+test('occupied plan uses archive receipts once, preserves partial archive payments and excludes unrelated future money', () => {
+  const s = initialState({}, '2026-01-01');
+  s.contracts = [{ id: 'archive', propertyId: 'p231', start: '2026-01-01', end: '2026-09-30', rent: 0, dueDay: 1, historyOnly: true, potentialRates: { '2026-03': 70 }, overrides: { '2026-05': 20 } }, { id: 'actual', propertyId: 'p231', start: '2026-10-06', end: '2026-11-15', rent: 100, dueDay: 6, overrides: { '2026-10': 50, '2026-11': 30 } }];
+  const receipt = (id, period, amount, extra = {}) => ({ id, propertyId: 'p231', contractId: 'archive', kind: 'rent', period, date: period + '-01', amount, ...extra });
+  s.payments.push(receipt('split-one', '2026-01', 30), receipt('split-two', '2026-01', 40), receipt('half-month', '2026-03', 35), receipt('known-obligation', '2026-05', 100), receipt('future-archive', '2026-07', 8000, { date: '2099-01-01' }), receipt('overpaid-known', '2026-11', 9000, { contractId: 'actual' }), receipt('outside-contract', '2026-12', 500, { contractId: 'actual', date: '2026-11-01' }));
+  validateState(s);
+  const before = JSON.stringify(s), result = occupiedRentPlan(s, { year: 2026, now });
+  assert.equal(result.rent, 205);
+  assert.equal(result.properties[0].months[0].historical, 70);
+  assert.equal(result.properties[0].months[2].amount, 35, 'Full-occupancy rates do not erase real partial occupancy');
+  assert.equal(result.properties[0].months[4].amount, 20);
+  assert.equal(result.properties[0].months[6].amount, 0);
+  assert.equal(result.properties[0].months[11].amount, 0);
+  assert.equal(JSON.stringify(s), before);
 });
 
 test('zero rent records are allowed with or without a tenant and preserve contractual debt', () => {

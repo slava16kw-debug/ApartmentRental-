@@ -106,6 +106,24 @@ export function rentPotential(s, { year, propertyId = 'all', now = today() }) {
   });
   return { properties, rent: properties.some(p => p.rent === null) ? null : properties.reduce((sum, p) => sum + cents(p.rent), 0) / 100 };
 }
+export function occupiedRentPlan(s, { year, propertyId = 'all', now = today() }) {
+  const properties = s.properties.filter(p => p.use === 'rental' && (propertyId === 'all' || p.id === propertyId)).map(p => {
+    const archiveIds = new Set(s.contracts.filter(c => c.propertyId === p.id && c.historyOnly).map(c => c.id));
+    const months = monthRange(`${year}-01`, `${year}-12`).map(period => {
+      const contracts = s.contracts.filter(c => c.propertyId === p.id && c.start <= dueDate(period, 31) && (!c.end || c.end >= period + '-01'));
+      // Contractual amounts include unpaid months and negotiated partial months.
+      // Archive receipts fill periods whose original obligations are unknown.
+      const known = contracts.filter(c => !c.historyOnly || Object.hasOwn(c.overrides || {}, period));
+      const knownIds = new Set(known.map(c => c.id));
+      const contracted = known.reduce((sum, c) => sum + cents(c.overrides?.[period] ?? c.rent), 0);
+      const archive = s.payments.filter(x => x.propertyId === p.id && x.kind === 'rent' && x.period === period && x.date <= now && archiveIds.has(x.contractId) && !knownIds.has(x.contractId));
+      const historical = archive.reduce((sum, x) => sum + cents(x.amount), 0);
+      return { period, amount: (contracted + historical) / 100, contracted: contracted / 100, historical: historical / 100, source: known.length ? 'contracts' : archive.length ? 'history' : 'vacant' };
+    });
+    return { propertyId: p.id, rent: months.reduce((sum, m) => sum + cents(m.amount), 0) / 100, months };
+  });
+  return { properties, rent: properties.reduce((sum, p) => sum + cents(p.rent), 0) / 100 };
+}
 export function intervals(s, meterId) {
   const meter = s.meters.find(m => m.id === meterId);
   const readings = s.readings.filter(r => r.meterId === meterId).sort((a, b) => a.date.localeCompare(b.date));

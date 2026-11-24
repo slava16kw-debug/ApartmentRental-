@@ -150,3 +150,32 @@ test('annual overview highlights linked contract days and labels apartment expen
     assert.equal(JSON.stringify(s), before);
   } finally { dom.window.close(); }
 });
+
+test('occupied plan sits next to full potential and compares annual receipts with the matching plan', () => {
+  const s = initialState({}, '2026-01-01');
+  s.contracts[0].rent = 100; s.contracts[0].end = '2026-09-30'; s.contracts[1].rent = 50;
+  s.payments.push({ id: 'one', propertyId: 'p231', contractId: 'c-p231', kind: 'rent', period: '2026-01', date: '2026-01-06', amount: 800 }, { id: 'two', propertyId: 'p741', contractId: 'c-p741', kind: 'rent', period: '2026-01', date: '2026-01-21', amount: 100 });
+  s.expenses.push({ id: 'cost', propertyId: 'p231', amount: 50, date: '2026-01-01', paid: true, payer: 'owner' }, { id: 'home', propertyId: 'p17', amount: 100, date: '2026-01-01', paid: true, payer: 'owner' });
+  const before = JSON.stringify(s);
+  const inspect = (propertyId, values, progress) => {
+    const dom = new JSDOM(renderWorkbook(s, { year: '2026', month: '11', propertyId }));
+    try {
+      const d = dom.window.document, potentialCard = d.querySelector('[data-summary="rent-potential"]').parentElement;
+      assert.ok(potentialCard.nextElementSibling.classList.contains('summary-occupancy'));
+      assert.equal(d.querySelectorAll('.sheet-summary > .sheet-summary-pair').length, 6);
+      for (const [key, value] of Object.entries(values)) assert.equal(d.querySelector(`[data-summary="${key}"]`).textContent.replace(/\s/g, ''), value, key);
+      const ratio = d.querySelector('[data-summary="occupied-percent"]');
+      assert.ok(ratio.closest('.summary-occupancy'));
+      const track = d.querySelector('.occupancy-completion-track i');
+      assert.equal(track?.style.width ?? null, progress);
+    } finally { dom.window.close(); }
+  };
+  inspect('all', { 'occupied-plan': '1500₽', 'occupied-percent': '60%', 'occupied-profit': '1450₽', 'rent-potential': '1800₽', 'rent-percent': '50%' }, '60%');
+  inspect('p231', { 'occupied-plan': '900₽', 'occupied-percent': '88,9%', 'occupied-profit': '850₽' }, '88.88888888888889%');
+  inspect('p17', { 'occupied-plan': '0₽', 'occupied-percent': '—', 'occupied-profit': '0₽' }, null);
+  assert.equal(JSON.stringify(s), before);
+  s.payments[0].amount = 1800;
+  inspect('all', { 'occupied-plan': '1500₽', 'occupied-percent': '126,7%' }, '100%');
+  s.payments = [];
+  inspect('all', { 'occupied-percent': '0%' }, '0%');
+});

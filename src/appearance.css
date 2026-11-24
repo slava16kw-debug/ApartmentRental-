@@ -227,6 +227,15 @@ html[data-theme] #toast { background: var(--ink); color: var(--surface); }
 .theme-picker select { min-height: 32px; padding: 5px 0; max-width: 105px; border: 0; background: transparent; color: var(--ink); cursor: pointer; font: inherit; }
 .theme-picker-swatch { width: 12px; height: 12px; flex-shrink: 0; border: 1px solid var(--muted); border-radius: 50%; background: linear-gradient(90deg, var(--surface) 50%, var(--ink) 50%); }
 .appearance-settings .theme-picker { min-width: 190px; justify-content: space-between; }
+.sheet-app .sheet-summary .summary-occupancy { grid-template-rows: auto auto auto 1fr; }
+.occupancy-completion { align-self: end; min-width: 0; margin-top: 2px; padding-top: 10px; border-top: 1px solid var(--border); }
+.occupancy-completion-label { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 5px 10px; font-size: 11px; color: var(--ink-secondary); }
+.occupancy-completion-label strong { color: var(--blue-ink); font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.occupancy-completion-track { height: 4px; margin-top: 8px; overflow: hidden; border-radius: 4px; background: var(--surface-raised); }
+.occupancy-completion-track i { display: block; height: 100%; border-radius: inherit; background: var(--blue-line); }
+.occupancy-profit-note { font-size: 10px; line-height: 1.5; color: var(--muted); margin: 9px 0 0; }
+.occupancy-profit-note b { color: var(--ink-secondary); font-weight: 600; white-space: nowrap; }
+.occupancy-plan-note { margin: -12px 0 23px; color: var(--muted); font-size: 10px; line-height: 1.6; }
 @media (max-width: 740px) {
   .theme-picker { padding: 0 7px; gap: 5px; }
   .top-actions .theme-picker-label { display: none; }

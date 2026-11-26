@@ -1,5 +1,6 @@
 import { build } from 'esbuild';
 import { readFile, mkdir, copyFile, writeFile, rm } from 'node:fs/promises';
+import { loadPublicAssets } from './static-assets.mjs';
 const root = new URL('../', import.meta.url);
 process.chdir(root.pathname);
 await rm('dist', { recursive: true, force: true });
@@ -8,6 +9,7 @@ await mkdir('dist/.openai', { recursive: true });
 const bundle = await build({ entryPoints: ['src/app.js'], bundle: true, write: false, minify: true, format: 'esm', target: 'es2022', platform: 'browser', legalComments: 'none' });
 const themeBundle = await build({ entryPoints: ['src/theme-init.js'], bundle: true, write: false, minify: true, format: 'iife', target: 'es2022', platform: 'browser', legalComments: 'none' });
 const assets = { 'app:theme': themeBundle.outputFiles[0].text, 'app:client': bundle.outputFiles[0].text, 'app:html': await readFile('src/index.html', 'utf8'), 'app:css': await readFile('src/style.css', 'utf8'), 'app:workbook-css': (await readFile('src/workbook.css', 'utf8')) + '\n' + (await readFile('src/theme.css', 'utf8')) + '\n' + (await readFile('src/appearance.css', 'utf8')) };
+assets['app:public'] = JSON.stringify(await loadPublicAssets());
 await build({ entryPoints: ['worker/index.js'], outfile: 'dist/server/index.js', bundle: true, format: 'esm', platform: 'browser', target: 'es2022', minify: true, plugins: [{ name: 'embedded-assets', setup(b) { b.onResolve({ filter: /^app:/ }, a => ({ path: a.path, namespace: 'asset' })); b.onLoad({ filter: /.*/, namespace: 'asset' }, a => ({ contents: assets[a.path], loader: 'text' })); } }] });
 await copyFile('.openai/hosting.json', 'dist/.openai/hosting.json');
 await mkdir('dist/drizzle', { recursive: true });

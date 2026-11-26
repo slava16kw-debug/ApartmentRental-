@@ -3,8 +3,13 @@ import client from 'app:client';
 import theme from 'app:theme';
 import css from 'app:css';
 import workbookCss from 'app:workbook-css';
+import publicFiles from 'app:public';
 import { initialState, validateState } from '../src/domain.js';
 import { handlePortfolio } from '../server/portfolio-api.js';
+const publicAssets = new Map(Object.entries(JSON.parse(publicFiles)).map(([path, file]) => [path, {
+  contentType: file.contentType,
+  body: Uint8Array.from(atob(file.body), character => character.charCodeAt(0)),
+}]));
 
 const SECURITY = { 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'same-origin', 'Cache-Control': 'no-store' };
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...SECURITY, 'Content-Type': 'application/json; charset=utf-8' } });
@@ -59,7 +64,7 @@ export default {
     else if (url.pathname === '/assets/theme.js') { headers['Content-Type'] = 'text/javascript; charset=utf-8'; content = theme; }
     else if (url.pathname === '/assets/style.css') { headers['Content-Type'] = 'text/css; charset=utf-8'; content = css; }
     else if (url.pathname === '/assets/workbook.css') { headers['Content-Type'] = 'text/css; charset=utf-8'; content = workbookCss; }
-    else if (url.pathname === '/favicon.svg') { headers['Content-Type'] = 'image/svg+xml'; content = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="11" fill="#f49a46"/><path d="m9 19 11-9 11 9v12h-8v-8h-6v8H9Z" fill="none" stroke="#ffffff" stroke-width="2"/></svg>'; }
+    else if (publicAssets.has(url.pathname)) { const asset = publicAssets.get(url.pathname); headers['Content-Type'] = asset.contentType; content = asset.body; }
     else if (url.pathname === '/' || !url.pathname.includes('.')) { headers['Content-Type'] = 'text/html; charset=utf-8'; content = html; }
     else return new Response('Not found', { status: 404 });
     headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'";

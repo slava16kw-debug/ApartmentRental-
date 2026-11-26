@@ -102,6 +102,9 @@ html[data-theme] .sheet-app.layout { background: var(--surface); border-color: v
 html[data-theme] .sheet-app .sidebar { background: var(--sidebar-bg); color: var(--ink-secondary); border-right: 1px solid var(--border); }
 html[data-theme] :is(.sheet-app .brand, .sheet-app h1, .sheet-app .brand-name, .sheet-app .mobile-brand, .sheet-app .account strong) { color: var(--ink); }
 html[data-theme] :is(.sheet-app .brand-mark, .sheet-app .account .avatar, .loading-mark) { background: var(--accent-soft); color: var(--accent-ink); }
+html[data-theme] .sheet-app .brand-mark, html[data-theme] .loading-mark { background: transparent; }
+.brand-logo { display: block; flex-shrink: 0; object-fit: contain; border-radius: 22%; }
+.sheet-app .brand-mark { flex-shrink: 0; }
 html[data-theme] .sheet-app .nav button { color: var(--ink-secondary); }
 html[data-theme] .sheet-app .nav button:hover { background: var(--surface-hover); color: var(--ink); }
 html[data-theme] .sheet-app .nav button.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
